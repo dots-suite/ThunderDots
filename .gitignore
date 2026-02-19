@@ -1,0 +1,27 @@
+# Python
+
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# MacOS
+.DS_Store
+
+# scripts
+project_dump.txt
+dump_project.py
+specs
+out_results/

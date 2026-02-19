@@ -1,0 +1,17 @@
+[project]
+name = "thunderdots"
+version = "0.1.0"
+description = "Fast DTS scraper (DoTS)"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx[http2]>=0.28.1",
+    "lxml>=6.0.2",
+    "rich>=14.3.2",
+    "tqdm>=4.67.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.ruff]
+line-length = 100

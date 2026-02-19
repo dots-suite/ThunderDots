@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+     branches:
+       - main
+       - 'release/*'
+  pull_request:
+        branches:
+            - main
+
+jobs:
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Setup Python
+        run: uv python install 3.11
+
+      - name: Install deps (if pyproject exists)
+        run: |
+          if [ -f pyproject.toml ]; then
+            uv sync
+          else
+            echo "No pyproject.toml; skipping dependency install."
+          fi
+
+      - name: Ruff check
+        run: |
+          uv run ruff check thunderdots
+
+  build-go:
+    name: Build Go shared lib (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Prepare build dir
+        shell: bash
+        run: |
+          mkdir -p thunderdots/native/build
+
+      - name: Build (linux/mac)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="thunderdots/native/build/libthunderdots.so"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            OUT="thunderdots/native/build/libthunderdots.dylib"
+          fi
+
+          # IMPORTANT: adapter le path du module Go si besoin
+          # Ici on reprend ton organisation: thunderdots/native/go/cmd/thunderdots
+          go build -buildmode=c-shared -o "$OUT" ./thunderdots/native/go/cmd/thunderdots
+
+          echo "Built: $OUT"
+          ls -la thunderdots/native/build
+
+      - name: Build (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force thunderdots/native/build | Out-Null
+
+          # Sur Windows, c-shared produit .dll + header .h (et parfois .a)
+          go build -buildmode=c-shared -o thunderdots/native/build/thunderdots.dll .\thunderdots\native\go\cmd\thunderdots
+          Get-ChildItem thunderdots/native/build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: thunderdots-native-${{ runner.os }}
+          path: |
+            thunderdots/native/build/*
+          if-no-files-found: error
