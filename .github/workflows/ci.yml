@@ -29,7 +29,10 @@ jobs:
         run: uv python install 3.11
 
       - name: Install deps
-        run: uv sync
+        run: uv sync --all-extras --dev
+
+      - name: Install Ruff
+        run: uv tool install ruff
 
       - name: Ruff format (check)
         run: uv run ruff format --check
