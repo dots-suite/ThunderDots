@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="assets/dots-light.png" width="450"><br>
-  ThunderDoTS Fast DTS Crawler via <img src="assets/dots-logo-retro.drawio.png" height="40">
+  ThunderDoTS — DTS Crawler via <img src="assets/dots-logo-retro.drawio.png" height="40">
 </h1>
 
 
