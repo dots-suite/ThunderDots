@@ -1,3 +1,3 @@
-module github.com/Lucaterre/thunderdots-native
+module github.com/chartes/ThunderDots/thunderdots/native/go
 
-go 1.25.7
+go 1.22

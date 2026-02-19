@@ -1,14 +1,16 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """walker.py
 
 Iterate over a collection and its sub-collections, fetching their data and the data of their resources.
 Using traversal (BFS) with a queue and a set of seen IDs to avoid cycles/dedupes.
 """
+
 from __future__ import annotations
 
 from typing import Tuple, List, Optional
 import asyncio
+
 
 async def _fetch_collection(fetcher, cid, stats, ui=None):
     params = {"id": cid} if cid else {}
@@ -46,7 +48,6 @@ async def walk_collections(fetcher, config, stats, ui=None) -> Tuple[List[dict],
 
     SENTINEL: Optional[tuple[str, list[str]]] = None
 
-
     async def worker() -> None:
         nonlocal walked
         while True:
@@ -73,7 +74,7 @@ async def walk_collections(fetcher, config, stats, ui=None) -> Tuple[List[dict],
                         collections.append((data, parents))
 
                     parent_id = data.get("@id")
-                    for m in (data.get("member") or []):
+                    for m in data.get("member") or []:
                         mid = (m or {}).get("@id")
                         if not mid or mid in excluded:
                             continue

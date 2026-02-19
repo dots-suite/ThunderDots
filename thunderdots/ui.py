@@ -1,8 +1,9 @@
-#-- coding: utf-8 -*-
+# -- coding: utf-8 -*-
 """ui.py
 
 UI utilities for ThunderDots, using Rich for console output and progress bars.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ console = Console(theme=theme)
 @dataclass
 class UI:
     """UI utilities for ThunderDots, using Rich for console output and progress bars."""
+
     enabled: bool = True
     progress: Optional[Progress] = None
     task_walk: Optional[int] = None

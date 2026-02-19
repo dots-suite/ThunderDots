@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """resources.py
 
@@ -16,11 +16,13 @@ from ..config import ThunderDotsConfig
 from ..fetcher import Fetcher
 
 
-async def fetch_resources(fetcher: Fetcher,
-                          config: ThunderDotsConfig,
-                          resources: list[tuple[dict[str, Any], list[str]]],
-                          stats,
-                          ui: Any = None) -> list[dict[str, Any]]:
+async def fetch_resources(
+    fetcher: Fetcher,
+    config: ThunderDotsConfig,
+    resources: list[tuple[dict[str, Any], list[str]]],
+    stats,
+    ui: Any = None,
+) -> list[dict[str, Any]]:
     """Fetch and extract text from resources, with concurrency and progress tracking.
 
     :param fetcher: Fetcher instance to use for HTTP requests.

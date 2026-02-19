@@ -1,13 +1,16 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """stats.py
 
 Stats collection and reporting for ThunderDots.
 """
+
 import time
 from datetime import datetime
 
+
 class Stats:
     """Stats collection and reporting for ThunderDots."""
+
     def start(self):
         """Start the timer and initialize stats."""
         self.t0 = time.time()

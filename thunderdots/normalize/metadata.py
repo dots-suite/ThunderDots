@@ -1,4 +1,4 @@
-#--*- coding: utf-8 -*-
+# --*- coding: utf-8 -*-
 
 """metadata.py
 
@@ -23,6 +23,7 @@ def _set_path(out: dict, path: list[str], value: any) -> None:
         cur = cur.setdefault(k, {})
     cur[path[-1]] = value
 
+
 def _get_path(src: dict, path: list[str]) -> any:
     """Get a value from a nested dict given a path.
 
@@ -41,16 +42,17 @@ def _get_path(src: dict, path: list[str]) -> any:
         cur = cur[k]
     return cur
 
+
 def keep_paths(src: dict, paths: list[str]) -> dict:
     """Keep only the specified paths in a nested dict.
 
-    :param src: the original dict to filter
-    :type src: dict
-    :param paths: a list of dot-separated paths to keep (e.g. "d
-ublincore.creator")
-    :type paths: list[str]
-    :returns: a new dict containing only the specified paths and their values
-    :rtype: dict
+        :param src: the original dict to filter
+        :type src: dict
+        :param paths: a list of dot-separated paths to keep (e.g. "d
+    ublincore.creator")
+        :type paths: list[str]
+        :returns: a new dict containing only the specified paths and their values
+        :rtype: dict
     """
     if not paths:
         return src  # or {} if none should be kept

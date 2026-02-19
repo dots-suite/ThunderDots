@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """output.py
 
@@ -7,11 +7,14 @@ Build the final output dict with filtered metadata and results.
 
 from .metadata import keep_paths
 
-def build_output(collections: list[tuple[dict, list[str]]],
-                 resources: list[dict],
-                 stats: dict,
-                 version: str,
-                 keep_collection_meta: list[str] = None) -> dict:
+
+def build_output(
+    collections: list[tuple[dict, list[str]]],
+    resources: list[dict],
+    stats: dict,
+    version: str,
+    keep_collection_meta: list[str] = None,
+) -> dict:
     """Build the final output dict with filtered metadata and results.
 
     :param collections: List of tuples (collection_data, parent_ids) to include in output.
@@ -37,14 +40,19 @@ def build_output(collections: list[tuple[dict, list[str]]],
         }
         meta = keep_paths(full_meta, keep_collection_meta)
 
-        filtered_collections.append({
-            "@id": data.get("@id"),
-            "@type": data.get("@type"),
-            "title": data.get("title"),
-            "metadata": {k: v for k, v in meta.items() if v},
-            # optionnel: garder seulement les ids des membres
-            "member": [{"@id": m.get("@id"), "@type": m.get("@type"), "title": m.get("title")} for m in (data.get("member") or [])],
-        })
+        filtered_collections.append(
+            {
+                "@id": data.get("@id"),
+                "@type": data.get("@type"),
+                "title": data.get("title"),
+                "metadata": {k: v for k, v in meta.items() if v},
+                # optionnel: garder seulement les ids des membres
+                "member": [
+                    {"@id": m.get("@id"), "@type": m.get("@type"), "title": m.get("title")}
+                    for m in (data.get("member") or [])
+                ],
+            }
+        )
 
     return {
         "dtsVersion": "1-alpha",

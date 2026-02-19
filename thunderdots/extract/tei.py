@@ -1,9 +1,10 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """tei.py
 
 Extract text fragments from TEI XML, using optional navigation JSON for structure.
 """
+
 from __future__ import annotations
 
 from lxml import etree
@@ -12,6 +13,7 @@ from lxml import etree
 NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
 PARSER = etree.XMLParser(recover=False, huge_tree=False, remove_comments=True)
+
 
 def _index_xml_ids_iter(root: etree._Element) -> dict[str, etree._Element]:
     """Build an index of xml:id to element using iter (memory efficient).
@@ -27,6 +29,7 @@ def _index_xml_ids_iter(root: etree._Element) -> dict[str, etree._Element]:
         if xid:
             idx[xid] = el
     return idx
+
 
 def _parent_id(m: dict) -> str | None:
     """Get the parent ID from a navigation member, checking 'parent' and 'references'.
@@ -44,6 +47,7 @@ def _parent_id(m: dict) -> str | None:
         if isinstance(r0, dict):
             return r0.get("@id")
     return None
+
 
 def _breadcrumb(idx: dict[str, dict], xml_id: str) -> str:
     """Construct a breadcrumb string for a given xml_id using the navigation index.
@@ -71,6 +75,7 @@ def _breadcrumb(idx: dict[str, dict], xml_id: str) -> str:
 
     return " > ".join(reversed(parts))
 
+
 def _text_content(el):
     """Extract text content from an element, normalizing whitespace.
 
@@ -80,6 +85,7 @@ def _text_content(el):
     :rtype: str
     """
     return " ".join("".join(el.itertext()).split())
+
 
 def _max_cite_depth(nav_json) -> int:
     """Safely extract maxCiteDepth from navigation JSON, defaulting to 0 on error.
@@ -93,6 +99,7 @@ def _max_cite_depth(nav_json) -> int:
         return int(nav_json["resource"]["citationTrees"]["maxCiteDepth"] or 0)
     except Exception:
         return 0
+
 
 def extract_document_text_fast(tei_xml: str) -> list[dict]:
     """

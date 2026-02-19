@@ -15,16 +15,13 @@ from typing import Any
 
 from .ui import UI
 from .stats import Stats
-from .config import (ThunderDotsConfig,
-                     CollectionParams,
-                     ResourceParams)
-from .fetcher import (HttpxFetcher,
-                      GoFetcher,
-                      Fetcher)
+from .config import ThunderDotsConfig, CollectionParams, ResourceParams
+from .fetcher import HttpxFetcher, GoFetcher, Fetcher
 from .extract.walker import walk_collections
 from .extract.resources import fetch_resources
 from .normalize.output import build_output
 from .__version__ import __version__
+
 
 class ThunderDots:
     def __init__(
@@ -190,11 +187,11 @@ class ThunderDots:
 
     def _make_fetcher(self) -> Fetcher:
         """Create and return a Fetcher instance based on the configuration.
-        This method checks the fetcher type specified in the configuration and initializes either a GoFetcher or
-an HttpxFetcher with the appropriate parameters. The GoFetcher is initialized with parameters specific to the Go implementation, while the HttpxFetcher is initialized with parameters suitable for Python HTTP requests. The method returns an instance of Fetcher that can be used for making requests to the DTS endpoint.
+                This method checks the fetcher type specified in the configuration and initializes either a GoFetcher or
+        an HttpxFetcher with the appropriate parameters. The GoFetcher is initialized with parameters specific to the Go implementation, while the HttpxFetcher is initialized with parameters suitable for Python HTTP requests. The method returns an instance of Fetcher that can be used for making requests to the DTS endpoint.
 
-:return: An instance of Fetcher (either GoFetcher or HttpxFetcher) initialized according to the configuration.
-:rtype: Fetcher
+        :return: An instance of Fetcher (either GoFetcher or HttpxFetcher) initialized according to the configuration.
+        :rtype: Fetcher
         """
         if self.config.fetcher == "go":
             return GoFetcher(

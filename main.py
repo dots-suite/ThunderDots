@@ -15,7 +15,9 @@ from thunderdots import ThunderDots
 def sandbox():
     dir = "out_results"
     os.makedirs(dir, exist_ok=True)
-    out_filename = f"{dir}/thunderdots_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    out_filename = (
+        f"{dir}/thunderdots_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     http_params = dict(
         concurrency=8,
         max_inflight=8 * 2,
@@ -34,18 +36,14 @@ def sandbox():
             # "add_hierarchy": True, # opt.
         },
         resource_params={
-            "keep_metadata": [
-                "dublincore.creator",
-                "dublincore.date",
-                "extensions.dct:extend"
-            ],
+            "keep_metadata": ["dublincore.creator", "dublincore.date", "extensions.dct:extend"],
             # "add_hierarchy": True, # opt.
             # "add_head_to_content": True, # opt.
         },
         verbose=True,
         fetcher="python",  # "go" | "python"
         output_path=out_filename,
-        **http_params
+        **http_params,
     )
     # yappi.set_clock_type("wall")
     # yappi.start(builtins=True)
@@ -65,5 +63,5 @@ def sandbox():
     print(td.stats())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sandbox()

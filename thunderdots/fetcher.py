@@ -1,9 +1,10 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """fetcher.py
 
 Fetcher implementations: HttpxFetcher (pure Python) and GoFetcher (via FFI).
 """
+
 from __future__ import annotations
 
 import time
@@ -20,7 +21,9 @@ import httpx
 
 
 class Fetcher:
-    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    async def get_json(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Fetch JSON data from the given path with optional query parameters.
 
         :param path: The API path to fetch (e.g. "/collection").
@@ -79,9 +82,11 @@ async def _sleep_backoff(base_ms: int, attempt: int) -> None:
     jitter = (time.time_ns() % 50) / 1000.0
     await asyncio.sleep(d + jitter)
 
+
 @dataclass
 class HttpxFetcher(Fetcher):
     """HTTP fetcher implementation using httpx.AsyncClient, with retries and backoff."""
+
     endpoint: str
     timeout: float
     concurrency: int
@@ -90,8 +95,7 @@ class HttpxFetcher(Fetcher):
     stats: Any | None = None
 
     def __post_init__(self) -> None:
-        """Initialize the httpx.AsyncClient with appropriate limits and timeouts based on the configuration.
-        """
+        """Initialize the httpx.AsyncClient with appropriate limits and timeouts based on the configuration."""
         max_conn = max(1, min(int(self.concurrency or 20), 200))
         limits = httpx.Limits(
             max_connections=max_conn,
@@ -198,7 +202,9 @@ class HttpxFetcher(Fetcher):
             raise last_exc
         raise RuntimeError("http fetch failed")
 
-    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    async def get_json(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Fetch JSON data from the given path with optional query parameters, returning a dictionary if successful or None on failure.
 
         :param path: The API path to fetch (e.g. "/collection").
@@ -237,9 +243,9 @@ class HttpxFetcher(Fetcher):
         return r.text
 
     async def aclose(self) -> None:
-        """Close the underlying httpx.AsyncClient session to free resources.
-        """
+        """Close the underlying httpx.AsyncClient session to free resources."""
         await self._client.aclose()
+
 
 def _default_lib_name() -> str:
     """Determine the default library name for the ThunderDots Go fetcher based on the operating system."""
@@ -272,6 +278,7 @@ class GoFetcher(Fetcher):
       - TDGetJSON(cfg_json, path, params_json) -> {"ok":true,"status":200,"json":{...}} or {"ok":false,...}
       - TDGetText(cfg_json, path, params_json) -> {"ok":true,"status":200,"text":"..."} or {"ok":false,...}
     """
+
     def __init__(
         self,
         lib_path: str | None,
@@ -318,10 +325,7 @@ class GoFetcher(Fetcher):
         }
         self._cfg_b = json.dumps(cfg, ensure_ascii=False).encode("utf-8")
 
-    def _call(self,
-              fn: callable,
-              path: str,
-              params: dict[str, Any] | None) -> bytes:
+    def _call(self, fn: callable, path: str, params: dict[str, Any] | None) -> bytes:
         """Internal method to call a function from the Go library with the given path and parameters, handling the conversion of inputs and outputs between Python and C types.
 
         :param fn: The function from the Go library to call (e.g. self.lib.TDGetJSON).
@@ -344,7 +348,9 @@ class GoFetcher(Fetcher):
         finally:
             self.lib.ThunderDotsFree(ptr)
 
-    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    async def get_json(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Fetch JSON data from the given path with optional query parameters using the Go fetcher, returning a dictionary if successful or None on failure.
 
         :param path: The API path to fetch (e.g. "/collection").

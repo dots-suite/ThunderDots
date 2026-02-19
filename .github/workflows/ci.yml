@@ -4,18 +4,18 @@ on:
   push:
     branches:
       - main
-      - master
       - "release/*"
   pull_request:
     branches:
       - main
-      - master
+
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    name: Ruff
+  python-lint:
+    name: Python (ruff)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,27 +23,25 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Install Ruff
-        run: uv tool install ruff
+      - name: Setup Python
+        run: uv python install 3.11
 
-      - name: Ruff check
-        run: ruff check thunderdots
+      - name: Install deps
+        run: uv sync
 
-      - name: Ruff format check
-        run: ruff format --check thunderdots
+      - name: Ruff format (check)
+        run: uv run ruff format --check thunderdots
 
-  build-go:
-    name: Build Go shared lib (${{ matrix.os }})
+      - name: Ruff lint
+        run: uv run ruff check thunderdots
+
+  go-build:
+    name: Go native lib (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-
-    env:
-      GO_VERSION: "1.22"
-      GO_CMD_DIR: "thunderdots/native/go/cmd/thunderdots"
-      OUT_DIR: "thunderdots/native/build"
 
     steps:
       - name: Checkout
@@ -52,57 +50,58 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: "1.22"
           cache: true
+          cache-dependency-path: thunderdots/native/go/go.sum
 
-      - name: Prepare build dir
+      # dossier build (et purge)
+      - name: Prepare build dir (unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "${OUT_DIR}"
+          mkdir -p thunderdots/native/build
+          rm -rf thunderdots/native/build/*
 
-      # Linux + macOS (bash)
+      - name: Prepare build dir (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force thunderdots/native/build | Out-Null
+          Remove-Item -Recurse -Force thunderdots/native/build/* -ErrorAction SilentlyContinue
+
+      # build linux/mac
       - name: Build (linux/mac)
         if: runner.os != 'Windows'
         shell: bash
-        working-directory: ${{ env.GO_CMD_DIR }}
+        working-directory: thunderdots/native/go
         run: |
           set -euo pipefail
 
+          OUT="../build/libthunderdots.so"
           if [ "${{ runner.os }}" = "macOS" ]; then
             OUT="../build/libthunderdots.dylib"
-          else
-            OUT="../build/libthunderdots.so"
           fi
 
-          # build in the module directory
-          go mod tidy
-          go build -buildmode=c-shared -o "$OUT"
+          # build shared lib
+          go build -buildmode=c-shared -o "$OUT" ./cmd/thunderdots
 
           echo "Built: $OUT"
           ls -la ../build
 
-      # Windows (pwsh) - IMPORTANT: build inside the module directory
+      # build windows
       - name: Build (windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        working-directory: ${{ env.GO_CMD_DIR }}
+        working-directory: thunderdots/native/go
         run: |
-          New-Item -ItemType Directory -Force ..\build | Out-Null
-
-          # go mod tidy inside module
-          go mod tidy
-
-          # On Windows, c-shared produit .dll + .h (et parfois .a)
-          go build -buildmode=c-shared -o ..\build\thunderdots.dll
-
-          "Built files:"
+          # buildmode=c-shared => .dll + .h (et parfois .a)
+          go build -buildmode=c-shared -o ..\build\thunderdots.dll .\cmd\thunderdots
           Get-ChildItem ..\build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: thunderdots-native-${{ runner.os }}
-          path: |
-            thunderdots/native/build/*
+          path: thunderdots/native/build/*
           if-no-files-found: error
