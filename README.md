@@ -17,7 +17,7 @@
   <a href="https://github.com/chartes/thunderdots/actions/workflows/ci.yml">
     <img src="https://github.com/chartes/thunderdots/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <a href="https://github.com/chartes/thunderdots/blob/main/LICENSE.md">
+  <a href="https://github.com/chartes/thunderdots/blob/master/LICENSE.md">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
   </a>
 </p>
