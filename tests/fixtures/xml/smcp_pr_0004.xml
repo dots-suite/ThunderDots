@@ -1,0 +1,19 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:dts="https://w3id.org/dts/api#">
+  <dts:wrapper>
+    <text xml:id="SMCP-PR_0004" n="4" subtype="article">
+      <front>
+        <docDate><date when="1006-11-11">Palais d'Orléans, 11 novembre 1006</date></docDate>
+        <argument><p>Le roi Robert II confirme une donation faite aux chanoines.</p></argument>
+        <div xml:id="tradition" type="tradition">
+          <listWit type="original"><witness n="A">Original scellé. Arch. nat. K 18, nº 8.</witness></listWit>
+        </div>
+      </front>
+      <body>
+        <div xml:id="transcription" xml:lang="lat" type="transcription">
+          <p><s><seg type="theo">In nomine sancte et individue Trinitatis</seg> : <persName>Rotbertus</persName>, rex.</s></p>
+          <p><s>Actum palatio <placeName>Aurelianis</placeName> anno regnante Rotberto gloriosissimo rege.</s></p>
+        </div>
+      </body>
+    </text>
+  </dts:wrapper>
+</TEI>

@@ -1,0 +1,91 @@
+site_name: ThunderDots
+site_description: DTS client and TEI fragmentation toolkit for digital humanities corpora.
+site_url: https://chartes.github.io/thunderdots/
+repo_url: https://github.com/chartes/thunderdots
+repo_name: chartes/thunderdots
+edit_uri: edit/main/mkdocs/docs/
+
+docs_dir: docs
+site_dir: site
+
+use_directory_urls: true
+
+theme:
+  name: material
+  language: en
+  logo: assets/dots-light.png
+  favicon: assets/dots-light.png
+  custom_dir: overrides
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+  palette:
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    primary: teal
+    accent: teal
+    toggle:
+      icon: material/weather-night
+      name: Switch to dark mode
+
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    primary: teal
+    accent: teal
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      include_source: true
+      execute: false
+      include_requirejs: true
+      ignore_h1_titles: false
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick start: quickstart.md
+  - Configuration: configuration.md
+  - Fragmentation: fragmentation.md
+  - Metadata and validation: metadata-validation.md
+  - Exports: exports.md
+  - Caching and async: caching-async.md
+  - Troubleshooting: troubleshooting.md
+  - API reference: api-reference.md
+  - Notebook: notebooks/thunderdots_playground.ipynb
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/chartes/thunderdots
+
+extra_css:
+  - stylesheets/extra.css
+
+copyright: Copyright &copy; 2026 ThunderDots

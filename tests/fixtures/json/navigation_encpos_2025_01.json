@@ -1,0 +1,22 @@
+{
+  "@id": "ENCPOS_2025_01",
+  "@type": "Resource",
+  "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+  "member": [
+    {
+      "@id": "#intro",
+      "level": 1,
+      "dublincore": {"title": "Introduction"}
+    },
+    {
+      "@id": "#chap1",
+      "level": 1,
+      "dublincore": {"title": "Chapitre I"}
+    },
+    {
+      "@id": "#annexes",
+      "level": 1,
+      "dublincore": {"title": "Pièces justificatives"}
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:id="ENCPOS_1893_05" xml:lang="fre">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title>Jean II, duc d’Alençon (1404 ou 1405-1476)</title>
+        <author ref="https://www.idref.fr/035051035">Joseph Guibert</author>
+      </titleStmt>
+      <publicationStmt><publisher>École des chartes</publisher><date when="2021"/></publicationStmt>
+      <sourceDesc><bibl><date>1893</date><biblScope>p. 43-46</biblScope></bibl></sourceDesc>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <head rend="uc">Jean II duc d’Alençon (1404 ou 1405 – 1476)</head>
+      <byline>par <forename>Joseph</forename> <surname>Guibert</surname></byline>
+      <div xml:id="biblio">
+        <head rend="uc">Bibliographie</head>
+        <p/>
+      </div>
+      <div xml:id="intro">
+        <head rend="uc">Introduction</head>
+        <p>Texte introductif utile pour tester la navigation.</p>
+      </div>
+      <div xml:id="chap1">
+        <head rend="uc">Chapitre I (1405-1415)</head>
+        <p>L’origine de Jean d’Alençon ; date de sa naissance ; différentes dates données jusqu’à présent.</p>
+        <p>Son père, le comte d’Alençon, est un membre du parti Armagnac.</p>
+      </div>
+      <div xml:id="annexes">
+        <head rend="uc">Pièces justificatives</head>
+        <p>Annexe à exclure dans certains tests.</p>
+      </div>
+    </body>
+  </text>
+</TEI>

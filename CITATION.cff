@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "ThunderDots"
+abstract: >
+  A Python client for Distributed Text Services (DTS) endpoints, initially built
+  for DoTS. ThunderDots walks DTS collections and subcollections, fetches
+  resources and TEI/XML documents, extracts text fragments from full documents,
+  DTS navigation, or custom TEI XPath rules, filters Dublin Core and extension
+  metadata, validates generated outputs, and exports records for indexing,
+  full-text search, RAG, vector databases, or corpus-analysis pipelines.
+type: software
+authors:
+  - family-names: Terriel
+    given-names: Lucas
+    orcid: "https://orcid.org/0000-0002-9189-258X"
+    affiliation: "École nationale des chartes – PSL"
+repository-code: "https://github.com/chartes/thunderdots"
+url: "https://github.com/chartes/thunderdots"
+license: MIT
+keywords:
+  - DTS
+  - Distributed Text Services
+  - TEI
+  - XML
+  - text extraction
+  - digital humanities
+  - cultural heritage
+  - corpus analysis
+  - full-text search
+  - RAG
+  - Elasticsearch
+  - Qdrant
+  - Python
+version: "0.1.0"
+date-released: "2026-01-01"
+preferred-citation:
+  type: software
+  title: "ThunderDots"
+  authors:
+    - family-names: Terriel
+      given-names: Lucas
+      orcid: "https://orcid.org/0000-0002-9189-258X"
+      affiliation: "École nationale des chartes – PSL"
+  repository-code: "https://github.com/chartes/thunderdots"
+  url: "https://github.com/chartes/thunderdots"
+  license: MIT
+  version: "0.1.0"
+  date-released: "2026-01-01"

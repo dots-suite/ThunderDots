@@ -1,17 +1,35 @@
 [project]
 name = "thunderdots"
 version = "0.1.0"
-description = "Fast DTS scraper (DoTS)"
+description = "ThunderDots is a Python client for DTS (Distributed Text Services) endpoints, initially built for DoTS."
 requires-python = ">=3.10"
 dependencies = [
+    "edtf>=5.0.1",
+    "h2>=4.3.0",
     "httpx[http2]>=0.28.1",
+    "jsonschema>=4.26.0",
     "lxml>=6.0.2",
     "rich>=14.3.2",
     "tqdm>=4.67.3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.15.1",
+]
+
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5",
+    "mkdocs-jupyter>=0.25",
+    "jupyter",
+    "ipykernel",
+]
+
+all = [
+    "thunderdots[dev,docs]",
+]
 
 [tool.ruff]
 line-length = 100

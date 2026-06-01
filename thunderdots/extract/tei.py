@@ -6,13 +6,257 @@ Extract text fragments from TEI XML, using optional navigation JSON for structur
 """
 
 from __future__ import annotations
-
+import unicodedata
+import hashlib
+from copy import deepcopy
 from lxml import etree
 
 
 NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
 PARSER = etree.XMLParser(recover=False, huge_tree=False, remove_comments=True)
+
+
+def _parse_tei_xml(tei_xml: str | bytes) -> etree._Element:
+    """
+    Parse un document TEI depuis une chaîne str ou bytes.
+
+    lxml refuse les chaînes Unicode qui contiennent une déclaration XML
+    avec encoding, par exemple :
+    <?xml version="1.0" encoding="UTF-8"?>
+
+    Pour rendre l'entrée robuste, on encode systématiquement les str en UTF-8.
+    """
+    if isinstance(tei_xml, str):
+        tei_xml = tei_xml.encode("utf-8")
+
+    return etree.fromstring(tei_xml, parser=PARSER)
+
+
+def _node_xml_id(node: etree._Element) -> str | None:
+    return node.get(XML_ID)
+
+
+def _stable_fragment_id(prefix: str, resource_id: str | None, index: int, text: str) -> str:
+    base = f"{resource_id or ''}::{index}::{text}"
+    digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}{digest}"
+
+
+def _first_text_by_xpath(node: etree._Element, xpath: str | None) -> str | None:
+    if not xpath:
+        return None
+
+    matches = node.xpath(xpath, namespaces=NS)
+
+    if not matches:
+        return None
+
+    first = matches[0]
+
+    if isinstance(first, etree._Element):
+        return _normalize_ws("".join(first.itertext()))
+
+    return _normalize_ws(str(first))
+
+
+def _text_content_without_local_heads(
+    node: etree._Element,
+    *,
+    head_xpath: str = "./tei:head",
+) -> str:
+    node_copy = deepcopy(node)
+
+    for head in node_copy.xpath(head_xpath, namespaces=NS):
+        parent = head.getparent()
+        if parent is not None:
+            parent.remove(head)
+
+    return _normalize_ws("".join(node_copy.itertext()))
+
+
+def _nearest_ancestor_head(node: etree._Element) -> str | None:
+    cur = node.getparent()
+    while cur is not None:
+        heads = cur.xpath("./tei:head", namespaces=NS)
+        if heads:
+            return _normalize_ws(" ".join("".join(h.itertext()) for h in heads))
+        cur = cur.getparent()
+    return None
+
+
+def extract_fragments_by_xpath(
+    tei_xml: str,
+    *,
+    fragment_xpath: str,
+    resource_id: str | None = None,
+    title_xpath: str = "./tei:head",
+    remove_fragment_heads: bool = True,
+    add_head_to_content: bool = False,
+    exclude_heads_contains: list[str] | None = None,
+    include_breadcrumb: bool = True,
+    generated_id_prefix: str = "__DOCUMENT__",
+) -> list[dict]:
+    root = _parse_tei_xml(tei_xml)
+    nodes = root.xpath(fragment_xpath, namespaces=NS)
+
+    fragments: list[dict] = []
+
+    for index, node in enumerate(nodes):
+        if not isinstance(node, etree._Element):
+            continue
+
+        head = _first_text_by_xpath(node, title_xpath)
+        if head is None:
+            head = _nearest_ancestor_head(node)
+
+        if _should_exclude_head(head, exclude_heads_contains):
+            continue
+
+        if remove_fragment_heads:
+            content = _text_content_without_local_heads(node, head_xpath=title_xpath)
+        else:
+            content = _normalize_ws("".join(node.itertext()))
+
+        if add_head_to_content and head:
+            content = _normalize_ws(f"{head} {content}")
+        else:
+            content = _strip_leading_head(content, head)
+
+        if not content:
+            continue
+
+        xml_id = _node_xml_id(node)
+        dots_id = xml_id or _stable_fragment_id(
+            generated_id_prefix,
+            resource_id,
+            index,
+            content,
+        )
+
+        item = {
+            "dots_id": dots_id,
+            "head": head,
+            "content": content,
+            "fragment_xpath": fragment_xpath,
+            "fragment_index": index,
+        }
+
+        if include_breadcrumb:
+            item["breadcrumb"] = head or ""
+
+        fragments.append(item)
+
+    return fragments
+
+
+def _short_id(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = str(value)
+    if "#" in value:
+        return value.rsplit("#", 1)[-1]
+    if "/" in value:
+        return value.rstrip("/").rsplit("/", 1)[-1]
+    return value
+
+
+def _nav_members(nav_json) -> list[dict]:
+    if not isinstance(nav_json, dict):
+        return []
+
+    members = nav_json.get("member")
+    if isinstance(members, list):
+        return members
+
+    resource = nav_json.get("resource")
+    if isinstance(resource, dict):
+        members = resource.get("member")
+        if isinstance(members, list):
+            return members
+
+    return []
+
+
+def _nav_title(m: dict) -> str | None:
+    dc = m.get("dublincore") or m.get("dublinCore") or {}
+    if isinstance(dc, dict):
+        title = dc.get("title")
+        if title:
+            return str(title)
+
+    title = m.get("title")
+    return str(title) if title else None
+
+
+def _nav_identifier(m: dict) -> str | None:
+    value = m.get("identifier") or m.get("@id") or m.get("id")
+    return _short_id(value)
+
+
+def _max_cite_depth(nav_json) -> int:
+    if not isinstance(nav_json, dict):
+        return 0
+
+    candidates = [
+        nav_json,
+        nav_json.get("resource") if isinstance(nav_json.get("resource"), dict) else {},
+    ]
+
+    for candidate in candidates:
+        try:
+            citation_trees = candidate.get("citationTrees") or {}
+            value = citation_trees.get("maxCiteDepth")
+            if value is not None:
+                return int(value or 0)
+        except Exception:
+            continue
+
+    members = _nav_members(nav_json)
+    return 1 if members else 0
+
+
+def _normalize_ws(text: str) -> str:
+    return " ".join((text or "").split()).strip()
+
+
+def _strip_leading_head(content: str, head: str | None) -> str:
+    """Remove heading prefix from content if it is duplicated at the start."""
+    normalized_content = _normalize_ws(content)
+    normalized_head = _normalize_ws(head or "")
+
+    if not normalized_head:
+        return normalized_content
+
+    if normalized_content == normalized_head:
+        return ""
+
+    prefix = normalized_head + " "
+    if normalized_content.startswith(prefix):
+        return normalized_content[len(prefix) :].strip()
+
+    return normalized_content
+
+
+def _text_content_without_descendant_fragments(
+    node: etree._Element,
+    current_xml_id: str,
+    fragment_ids: set[str],
+) -> str:
+    """Extract text from a node excluding descendant nodes that are separate fragments."""
+    node_copy = deepcopy(node)
+
+    for el in list(node_copy.iter()):
+        if el is node_copy:
+            continue
+
+        xid = el.get(XML_ID)
+        if xid and xid != current_xml_id and xid in fragment_ids:
+            parent = el.getparent()
+            if parent is not None:
+                parent.remove(el)
+
+    return _normalize_ws("".join(node_copy.itertext()))
 
 
 def _index_xml_ids_iter(root: etree._Element) -> dict[str, etree._Element]:
@@ -32,20 +276,16 @@ def _index_xml_ids_iter(root: etree._Element) -> dict[str, etree._Element]:
 
 
 def _parent_id(m: dict) -> str | None:
-    """Get the parent ID from a navigation member, checking 'parent' and 'references'.
+    parent = m.get("parent")
+    if isinstance(parent, str):
+        return _short_id(parent)
 
-    :param m: Navigation member dictionary.
-    :type m: dict
-    :return: Parent ID if found, otherwise None.
-    :rtype: str | None
-    """
-    if isinstance(m.get("parent"), str):
-        return m["parent"]
     refs = m.get("references")
     if isinstance(refs, list) and refs:
         r0 = refs[0]
         if isinstance(r0, dict):
-            return r0.get("@id")
+            return _short_id(r0.get("@id") or r0.get("id"))
+
     return None
 
 
@@ -87,72 +327,94 @@ def _text_content(el):
     return " ".join("".join(el.itertext()).split())
 
 
-def _max_cite_depth(nav_json) -> int:
-    """Safely extract maxCiteDepth from navigation JSON, defaulting to 0 on error.
-
-    :param nav_json: Navigation JSON object.
-    :type nav_json: dict
-    :return: The maxCiteDepth value if present and valid, otherwise 0.
-    :rtype: int
-    """
-    try:
-        return int(nav_json["resource"]["citationTrees"]["maxCiteDepth"] or 0)
-    except Exception:
-        return 0
+def _normalize_match_text(text: str | None) -> str:
+    text = " ".join((text or "").split()).strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
 
 
-def extract_document_text_fast(tei_xml: str) -> list[dict]:
-    """
-    Fast path CPU: no nav, no xml:id index.
-    Just parse + grab tei:text + itertext.
+def _should_exclude_head(head: str | None, exclude_heads_contains: list[str] | None) -> bool:
+    normalized_head = _normalize_match_text(head)
+    if not normalized_head:
+        return False
 
-    :param tei_xml: TEI XML string to extract text from.
-    :type tei_xml: str
-    :return: List containing a single fragment with the entire document text.
-    :rtype: list[dict]
-    """
-    root = etree.fromstring(tei_xml, parser=PARSER)
+    for pattern in exclude_heads_contains or []:
+        normalized_pattern = _normalize_match_text(pattern)
+        if normalized_pattern and normalized_pattern in normalized_head:
+            return True
+
+    return False
+
+
+def extract_document_text_fast(
+    tei_xml: str,
+    *,
+    add_head_to_content: bool = True,
+    exclude_heads_contains: list[str] | None = None,
+    include_breadcrumb: bool = True,
+) -> list[dict]:
+    root = _parse_tei_xml(tei_xml)
     text_el = root.find(".//tei:text", namespaces=NS)
-    text = _text_content(text_el) if text_el is not None else ""
-    return [{"dots_id": "__DOCUMENT__", "content": text, "breadcrumb": ""}]
+
+    if text_el is None:
+        text = ""
+    elif add_head_to_content:
+        text = _text_content(text_el)
+    else:
+        text = _text_content_without_local_heads(
+            text_el,
+            head_xpath=".//tei:head",
+        )
+
+    item = {
+        "dots_id": "__DOCUMENT__",
+        "content": _normalize_ws(text),
+    }
+
+    if include_breadcrumb:
+        item["breadcrumb"] = ""
+
+    return [item]
 
 
-def extract_fragments(nav_json, tei_xml: str):
-    """Extract text fragments from TEI XML using navigation JSON for structure.
-
-    If nav_json is missing or has maxCiteDepth=0, falls back to fast path.
-
-    :param nav_json: Navigation JSON object containing structure information.
-    :type nav_json: dict
-    :param tei_xml: TEI XML string to extract text from.
-    :type tei_xml: str
-    :return: List of fragments with dots_id, level, head, breadcrumb, and content
-    :rtype: list[dict]
-    """
+def extract_fragments(
+    nav_json,
+    tei_xml: str,
+    add_head_to_content: bool = True,
+    exclude_heads_contains: list[str] | None = None,
+    include_breadcrumb: bool = True,
+):
     if (not nav_json) or (_max_cite_depth(nav_json) == 0):
-        return extract_document_text_fast(tei_xml)
+        return extract_document_text_fast(
+            tei_xml,
+            add_head_to_content=add_head_to_content,
+            exclude_heads_contains=exclude_heads_contains,
+            include_breadcrumb=include_breadcrumb,
+        )
 
-    # ---------- slow path (needs indexing) ----------
-    root = etree.fromstring(tei_xml, parser=PARSER)
+    root = _parse_tei_xml(tei_xml)
     xml_index = _index_xml_ids_iter(root)
 
-    members = nav_json.get("member", []) or []
+    members = _nav_members(nav_json)
 
-    # index nav: id -> {parent,title,level}
     nav_idx: dict[str, dict] = {}
+    fragment_ids: set[str] = set()
+
     for m in members:
-        mid = m.get("identifier")
+        mid = _nav_identifier(m)
         if not mid:
             continue
+
+        fragment_ids.add(mid)
         nav_idx[mid] = {
             "parent": _parent_id(m),
-            "title": (m.get("dublincore") or {}).get("title"),
+            "title": _nav_title(m),
             "level": m.get("level"),
         }
 
     fragments = []
     for m in members:
-        xml_id = m.get("identifier")
+        xml_id = _nav_identifier(m)
         if not xml_id:
             continue
 
@@ -160,15 +422,28 @@ def extract_fragments(nav_json, tei_xml: str):
         if node is None:
             continue
 
-        head = (m.get("dublincore") or {}).get("title")
-        fragments.append(
-            {
-                "dots_id": xml_id,
-                "level": m.get("level"),
-                "head": head,
-                "breadcrumb": _breadcrumb(nav_idx, xml_id),
-                "content": _text_content(node),
-            }
+        head = _nav_title(m)
+        if _should_exclude_head(head, exclude_heads_contains):
+            continue
+
+        content = _text_content_without_descendant_fragments(
+            node=node,
+            current_xml_id=xml_id,
+            fragment_ids=fragment_ids,
         )
 
+        if not add_head_to_content:
+            content = _strip_leading_head(content, head)
+        else:
+            content = _normalize_ws(content)
+
+        item = {
+            "dots_id": xml_id,
+            "level": m.get("level"),
+            "head": head,
+            "content": content,
+        }
+        if include_breadcrumb:
+            item["breadcrumb"] = _breadcrumb(nav_idx, xml_id)
+        fragments.append(item)
     return fragments

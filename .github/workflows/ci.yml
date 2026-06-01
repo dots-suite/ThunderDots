@@ -1,23 +1,26 @@
-name: CI
+name: CI/CD
 
 on:
   push:
     branches:
-      - main
-      - master
-      - "release/*"
+      - "**"
   pull_request:
     branches:
-      - main
-      - master
+      - "**"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-lint:
-    name: Python (ruff)
+    name: Python lint and format
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,87 +29,82 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Setup Python
-        run: uv python install 3.11
+        run: uv python install 3.12
 
-      - name: Install deps
+      - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Install Ruff
-        run: uv tool install ruff
-
-      - name: Ruff format (check)
+      - name: Ruff format check
         run: uv run ruff format --check
 
       - name: Ruff lint
         run: uv run ruff check
 
-  go-build:
-    name: Go native lib (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  python-tests:
+    name: Python unit tests
+    runs-on: ubuntu-latest
+    needs: python-lint
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run unit tests
+        run: uv run pytest
+
+  docs-build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    needs: python-tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Build MkDocs documentation
+        run: uv run mkdocs build --strict -f mkdocs/mkdocs.yml
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
         with:
-          go-version: "1.22"
-          cache: true
-          cache-dependency-path: thunderdots/native/go/go.sum
+          path: mkdocs/site
 
-      # dossier build (et purge)
-      - name: Prepare build dir (unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p thunderdots/native/build
-          rm -rf thunderdots/native/build/*
+  docs-deploy:
+    name: Deploy documentation to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: docs-build
 
-      - name: Prepare build dir (windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force thunderdots/native/build | Out-Null
-          Remove-Item -Recurse -Force thunderdots/native/build/* -ErrorAction SilentlyContinue
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-      # build linux/mac
-      - name: Build (linux/mac)
-        if: runner.os != 'Windows'
-        shell: bash
-        working-directory: thunderdots/native/go
-        run: |
-          set -euo pipefail
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
 
-          OUT="../build/libthunderdots.so"
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            OUT="../build/libthunderdots.dylib"
-          fi
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-          # build shared lib
-          go build -buildmode=c-shared -o "$OUT" ./cmd/thunderdots
-
-          echo "Built: $OUT"
-          ls -la ../build
-
-      # build windows
-      - name: Build (windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        working-directory: thunderdots/native/go
-        run: |
-          # buildmode=c-shared => .dll + .h (et parfois .a)
-          go build -buildmode=c-shared -o ..\build\thunderdots.dll .\cmd\thunderdots
-          Get-ChildItem ..\build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: thunderdots-native-${{ runner.os }}
-          path: thunderdots/native/build/*
-          if-no-files-found: error
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

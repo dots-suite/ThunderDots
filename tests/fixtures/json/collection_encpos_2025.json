@@ -1,0 +1,70 @@
+{
+  "@id": "ENCPOS_2025",
+  "@type": "Collection",
+  "title": "Les positions des thèses de l'Ecole nationale des chartes de 2025",
+  "totalItems": 2,
+  "totalChildren": 2,
+  "totalParents": 1,
+  "document": "/api/dts/document?resource=ENCPOS_2025{?ref,start,end,tree,mediaType}",
+  "dtsVersion": "1-alpha",
+  "dublincore": {
+    "title": "Les positions des thèses de l'Ecole nationale des chartes de 2025"
+  },
+  "extensions": {
+    "dct:publisher": "Ecole nationale des chartes",
+    "dct:rights": "https://creativecommons.org/licenses/by-nc-nd/3.0/fr/"
+  },
+  "member": [
+    {
+      "@id": "ENCPOS_2025_01",
+      "@type": "Resource",
+      "title": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France",
+      "totalItems": 0,
+      "totalChildren": 0,
+      "totalParents": 1,
+      "document": "/api/dts/document?resource=ENCPOS_2025_01{?ref,start,end,tree,mediaType}",
+      "navigation": "/api/dts/navigation?resource=ENCPOS_2025_01{?ref,start,end,tree,down}",
+      "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+      "mediaTypes": ["xml", "html"],
+      "dublincore": {
+        "creator": "Marie Auzel",
+        "date": 2025,
+        "title": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France"
+      },
+      "extensions": {
+        "dct:coverage": "1280/1284",
+        "dct:creator": [{"@id": "https://www.idref.fr/285049798"}],
+        "dct:extend": "7-16",
+        "download": "https://dots.chartes.psl.eu/api/dts/document?resource=ENCPOS_2025_01",
+        "html:h1": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France"
+      }
+    },
+    {
+      "@id": "ENCPOS_2025_02",
+      "@type": "Resource",
+      "title": "Convaincre, propager, mobiliser",
+      "totalItems": 0,
+      "totalChildren": 0,
+      "totalParents": 1,
+      "document": "/api/dts/document?resource=ENCPOS_2025_02{?ref,start,end,tree,mediaType}",
+      "navigation": "/api/dts/navigation?resource=ENCPOS_2025_02{?ref,start,end,tree,down}",
+      "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+      "mediaTypes": ["xml", "html"],
+      "dublincore": {
+        "creator": "Antoine Beckius",
+        "date": 2025,
+        "title": "Convaincre, propager, mobiliser"
+      },
+      "extensions": {
+        "dct:coverage": "1936/1944",
+        "dct:extend": "17-27"
+      }
+    }
+  ],
+  "@context": {
+    "dts": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
+    "dc": "http://purl.org/dc/elements/1.1/",
+    "dct": "http://purl.org/dc/terms/",
+    "html": "http://www.w3.org/1999/xhtml"
+  }
+}

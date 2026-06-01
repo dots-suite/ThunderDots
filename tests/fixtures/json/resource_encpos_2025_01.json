@@ -1,0 +1,28 @@
+{
+  "@id": "ENCPOS_2025_01",
+  "@type": "Resource",
+  "title": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France",
+  "totalItems": 0,
+  "totalChildren": 0,
+  "totalParents": 1,
+  "document": "/api/dts/document?resource=ENCPOS_2025_01{?ref,start,end,tree,mediaType}",
+  "navigation": "/api/dts/navigation?resource=ENCPOS_2025_01{?ref,start,end,tree,down}",
+  "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+  "mediaTypes": ["xml", "html"],
+  "dtsVersion": "1-alpha",
+  "dublincore": {
+    "creator": "Marie Auzel",
+    "date": 2025,
+    "title": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France"
+  },
+  "extensions": {
+    "dct:coverage": "1280/1284",
+    "dct:creator": [{"@id": "https://www.idref.fr/285049798"}],
+    "dct:extend": "7-16",
+    "dct:isVersionOf": [{"@id": "https://bibnum.chartes.psl.eu/s/thenca/item/66127"}],
+    "dct:publisher": "Ecole nationale des chartes",
+    "dct:rights": "https://creativecommons.org/licenses/by-nc-nd/3.0/fr/",
+    "download": "https://dots.chartes.psl.eu/api/dts/document?resource=ENCPOS_2025_01",
+    "html:h1": "Texte et images dans le manuscrit nouvelles acquisitions latines 868 de la Bibliothèque nationale de France"
+  }
+}

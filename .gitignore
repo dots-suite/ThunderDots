@@ -8,6 +8,8 @@ env.bak/
 venv.bak/
 __pycache__/
 
+.cache/
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 

@@ -1,65 +1,79 @@
-# --*- coding: utf-8 -*-
+# thunderdots/normalize/metadata.py
 
-"""metadata.py
+from __future__ import annotations
 
-Metadata normalization utilities.
-"""
-
-
-def _set_path(out: dict, path: list[str], value: any) -> None:
-    """Set a value in a nested dict given a path.
-
-    :param out: the dict to modify
-    :type out: dict
-    :param path: a list of keys representing the path to set
-    :type path: list[str]
-    :param value: the value to set at the given path
-    :type value: any
-    :returns: None (modifies out in place)
-    :rtype: None
-    """
-    cur = out
-    for k in path[:-1]:
-        cur = cur.setdefault(k, {})
-    cur[path[-1]] = value
+from typing import Any
 
 
-def _get_path(src: dict, path: list[str]) -> any:
-    """Get a value from a nested dict given a path.
+MISSING = object()
 
-    :param src: the dict to read from
-    :type src: dict
-    :param path: a list of keys representing the path to get
-    :type path: list[str]
-    :returns: the value at the given path, or None if any key is missing
-    :rtype: any
-    """
 
-    cur = src
-    for k in path:
-        if not isinstance(cur, dict) or k not in cur:
+def canonicalize_metadata_keys(src: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(src, dict):
+        return {}
+
+    out = dict(src)
+
+    if "dublincore" not in out and "dublinCore" in out:
+        out["dublincore"] = out.pop("dublinCore")
+
+    return out
+
+
+def get_path(src: dict[str, Any], dotted_path: str) -> Any:
+    cur: Any = src
+    for part in dotted_path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
             return None
-        cur = cur[k]
+        cur = cur[part]
     return cur
 
 
-def keep_paths(src: dict, paths: list[str]) -> dict:
-    """Keep only the specified paths in a nested dict.
+def set_path(out: dict[str, Any], dotted_path: str, value: Any) -> None:
+    cur = out
+    parts = dotted_path.split(".")
+    for part in parts[:-1]:
+        cur = cur.setdefault(part, {})
+    cur[parts[-1]] = value
 
-        :param src: the original dict to filter
-        :type src: dict
-        :param paths: a list of dot-separated paths to keep (e.g. "d
-    ublincore.creator")
-        :type paths: list[str]
-        :returns: a new dict containing only the specified paths and their values
-        :rtype: dict
+
+def pick_keys(src: dict[str, Any], keys: list[str] | None) -> dict[str, Any]:
     """
-    if not paths:
-        return src  # or {} if none should be kept
-    out: dict = {}
-    for p in paths:
-        parts = p.split(".")
-        v = _get_path(src, parts)
-        if v is not None:
-            _set_path(out, parts, v)
+    keys=None  -> keep everything
+    keys=[]    -> keep nothing
+    keys=[...] -> keep selected paths
+    """
+    if not isinstance(src, dict):
+        return {}
+
+    if keys is None:
+        return dict(src)
+
+    if not keys:
+        return {}
+
+    out: dict[str, Any] = {}
+    for key in keys:
+        value = get_path(src, key)
+        if value is not None:
+            set_path(out, key, value)
     return out
+
+
+def build_metadata(
+    raw_notice: dict[str, Any],
+    *,
+    metadata_dublincore: list[str] | None,
+    metadata_extensions: list[str] | None,
+) -> dict[str, Any]:
+    raw_notice = canonicalize_metadata_keys(raw_notice)
+
+    dc = raw_notice.get("dublincore") or {}
+    ext = raw_notice.get("extensions") or {}
+
+    metadata = {
+        "dublincore": pick_keys(dc, metadata_dublincore),
+        "extensions": pick_keys(ext, metadata_extensions),
+    }
+
+    return {key: value for key, value in metadata.items() if value}

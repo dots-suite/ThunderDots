@@ -1,3 +1,3 @@
-from .metadata import keep_paths
+from .metadata import canonicalize_metadata_keys
 
-__all__ = ["keep_paths"]
+__all__ = ["canonicalize_metadata_keys"]

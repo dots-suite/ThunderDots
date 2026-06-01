@@ -1,49 +1,64 @@
 <h1 align="center">
   <img src="assets/dots-light.png" width="450"><br>
-  ThunderDoTS — DTS Crawler via <img src="assets/dots-logo-retro.drawio.png" height="40">
+  ThunderDots — DTS client for documentary corpora
 </h1>
 
+<p align="center">
+  <strong>Fast DTS crawling, TEI fragmentation, metadata filtering, validation, and export pipelines.</strong>
+</p>
 
+<p align="center">
+  <a href="https://github.com/astral-sh/uv">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv">
+  </a>
+  <a href="https://github.com/astral-sh/ruff">
+    <img src="https://img.shields.io/badge/lint-ruff-0A0A0A?logo=ruff&logoColor=white" alt="ruff">
+  </a>
+  <a href="https://github.com/chartes/thunderdots/actions/workflows/ci.yml">
+    <img src="https://github.com/chartes/thunderdots/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://github.com/chartes/thunderdots/blob/main/LICENSE.md">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
+  </a>
+</p>
 
+---
 
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![ruff](https://img.shields.io/badge/lint-ruff-0A0A0A?logo=ruff&logoColor=white)](https://img.shields.io/badge/lint-ruff-0A0A0A?logo=ruff&logoColor=white)
-[![CI](https://github.com/chartes/ThunderDots/actions/workflows/ci.yml/badge.svg)](https://github.com/chartes/ThunderDots/actions/workflows/ci.yml)
+## Overview
 
-## Features
+**ThunderDots** is a Python client for [DTS](https://dtsapi.org/specifications/) (*Distributed Text Services*) endpoints, initially built for [DoTS](https://chartes.github.io/dots_documentation/).
 
-- Ultra-fast DTS crawling via engines: Python Asyncio or Go concurrency
-- Collection & resource traversal (Depth-First Search walk method)
-- TEI fragment extraction aligned with citation trees
-- Simple Python API
-- Configurable timeouts, retries, concurrency
+It helps you move from a remote DTS API to structured Python objects and JSON records that can feed indexing pipelines, including full-text search, RAG/vector databases, and corpus-analysis workflows.
 
-## Quickstart
+ThunderDots focuses on practical documentary workflows: crawling DTS collections, fetching TEI/XML resources, extracting reusable text fragments, selecting metadata, validating outputs, and exporting data to downstream search or indexing systems.
 
-```Python
-from thunderdots import ThunderDots
+---
 
-td = ThunderDots(
-    endpoint_dts="https://dev.chartes.psl.eu/dots/api/dts",
-    collection_params={"collection_id": "ENCPOS"},
-    engine="python", # or "go" for Go native extension
-)
+## What ThunderDots does
 
-td.fetch()
+ThunderDots can:
 
-print(td.stats())
-```
+- walk DTS collections and subcollections;
+- fetch resources and TEI/XML documents;
+- extract text fragments from full documents, DTS navigation, or custom TEI XPath rules;
+- preserve or filter Dublin Core and extension metadata;
+- enrich temporal metadata such as dates and coverage ranges;
+- validate generated outputs with JSON Schema;
+- export records to indexing pipelines such as Elasticsearch or Qdrant-compatible formats;
+- cache fetched corpora as JSON and CSV;
+- run synchronous or asynchronous workflows.
 
+---
 
 ## Installation
 
-### Via uv 
+### With `uv`
 
 ```bash
-uv pip install thunderdots
+uv add thunderdots
 ```
 
-### Via pip
+### With pip
 
 ```bash
 pip install thunderdots
@@ -51,90 +66,84 @@ pip install thunderdots
 
 ### For development
 
-Clone the repo and install in editable mode:
-
 ```bash
-git clone 
-cd ThunderDots/
-```
+git clone https://github.com/chartes/thunderdots.git
+cd thunderdots
 
-With [uv](https://docs.astral.sh/uv/getting-started/):
-
-```bash
 uv venv
 source .venv/bin/activate
-uv pip install -e .
+uv sync --all-extras --dev
 ```
 
-With pip:
+or with pip
 
 ```bash
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-## Build Go native extension (optional, dev only)
+## Minimal example
+
+```python
+from thunderdots import ThunderDots
+
+td = ThunderDots(
+    endpoint_dts="https://dots.chartes.psl.eu/api/dts",
+    collection_params={"collection_id": "ENCPOS_1900"},
+    resource_params={"fragment_mode": "document"},
+)
+
+td.fetch()
+results = td.results()
+
+print(td.stats())
+```
+
+## Development
+
+### Run tests
 
 ```bash
-cd thunderdots/native/go
-
-# MacOS
-go build -buildmode=c-shared -o ../build/libthunderdots.dylib ./cmd/thunderdots
-# Linux
-go build -buildmode=c-shared -o ../build/libthunderdots.so ./cmd/thunderdots
-# Windows
-go build -buildmode=c-shared -o ../build/libthunderdots.dll ./cmd/thunderdots
+pytest
 ```
 
-## Lint via ruff
+Online DTS tests are opt-in:
 
 ```bash
-ruff check thunderdots
+RUN_NETWORK_TESTS=1 pytest
 ```
 
-## Architecture 
+### Run Ruff (linter, format)
 
-
-```
-                    ThunderDots (Python API)
-                            │
-                            ▼
-                Orchestrateur async (asyncio)
-          (walk_collections + fetch_resources + build_output)
-                            │
-                            ▼
-                    Fetcher interface
-                            │
-            ┌───────────────┴────────────────┐
-            │                                │
-            ▼                                ▼
-      HttpxFetcher (Python)              GoFetcher (Go)
-   httpx.AsyncClient + retries           ctypes + libthunderdots
-   limits/max_connections                (TDGetJSON / TDGetText)
-            │                                │
-            └───────────────┬────────────────┘
-                            ▼
-                        DTS HTTP API
-                (/collection /navigation /document)
-                            │
-                            ▼
-                        TEI XML (doc)
-                            │
-                            ▼
-                   TEI extraction (lxml)
-            ┌────────────────┴────────────────┐
-            │                                 │
-            ▼                                 ▼
-   Fast path (maxCiteDepth=0)         Slow path (maxCiteDepth>0)
- extract_document_text_fast()         extract_fragments(nav, xml)
- (pas d’index xml:id)                (index xml:id + breadcrumbs)
+```bash
+ruff format --check
+ruff check
 ```
 
+### Build the documentation
 
+```bash
+mkdocs build --strict -f mkdocs/mkdocs.yml
+```
 
-## License
+### License
 
-...
+ThunderDots is distributed under the [MIT License](./LICENSE.md).
 
-## Citation
+### Citation
 
-...
+If you use ThunderDots in academic work, please cite it as:
+
+```
+@software{terriel_thunderdots_2026,
+  author       = {Terriel, Lucas},
+  title        = {ThunderDots},
+  year         = {2026},
+  publisher    = {GitHub},
+  url          = {https://github.com/chartes/thunderdots},
+  note         = {Python client for Distributed Text Services endpoints via DoTS}
+}
+```
+
+You can also use the repository metadata from [CITATION.cff￼](./CITATION.cff).
