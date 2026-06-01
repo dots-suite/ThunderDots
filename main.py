@@ -88,15 +88,9 @@ def summarize_results(results: dict[str, Any], stats: dict[str, Any]) -> dict[st
     collection_results = results.get("collection_results", [])
     resource_results = results.get("resource_results", [])
 
-    members_count = sum(
-        len(collection.get("member") or [])
-        for collection in collection_results
-    )
+    members_count = sum(len(collection.get("member") or []) for collection in collection_results)
 
-    fragments_count = sum(
-        len(resource.get("fragments") or [])
-        for resource in resource_results
-    )
+    fragments_count = sum(len(resource.get("fragments") or []) for resource in resource_results)
 
     return {
         "collections": len(collection_results),
