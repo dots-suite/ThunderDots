@@ -27,4 +27,5 @@ project_dump.txt
 dump_project.py
 specs
 out_results/
-thunderdots/native/build/*
+thunderdots/native/build/*mkdocs/site/
+site/

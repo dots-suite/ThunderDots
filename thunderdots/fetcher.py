@@ -110,6 +110,7 @@ class HttpxFetcher(Fetcher):
             timeout=self.timeout,
             http2=_http2_available(),
             follow_redirects=True,
+            limits=limits,
         )
 
         self.retries = int(self.retries or 0)

@@ -142,7 +142,7 @@ def print_first_items(results: dict[str, Any], *, limit: int = 3) -> None:
         print(f"\n[{i}] {resource.get('id')}")
         print(f"    Titre     : {resource.get('title')}")
         print(f"    Fragments : {len(fragments)}")
-        print(f"    Metadata  :")
+        print("    Metadata  :")
         pprint(metadata, sort_dicts=False, width=120)
 
         if fragments:
