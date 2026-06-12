@@ -140,12 +140,6 @@ or with uv:
 uv add thunderdots 
 ```
 
-You can also verify the installed version:
-
-```
-python -c "import thunderdots.__version__ as v; print(v.__version__)" 
-```
-
 ---
 
 ## Documentation deployment
