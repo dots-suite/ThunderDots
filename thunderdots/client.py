@@ -25,7 +25,19 @@ from .normalize.output import build_output
 from .normalize.metadata import canonicalize_metadata_keys
 from .validation import validate_notice, validate_many
 from .orm import DotsNotice
-from .__version__ import __version__
+from importlib.metadata import PackageNotFoundError, version
+
+
+def _package_version() -> str:
+    """Return the installed ThunderDots package version.
+
+    :return: Installed package version, or ``"0.0.0"`` when package metadata is unavailable.
+    :rtype: str
+    """
+    try:
+        return version("thunderdots")
+    except PackageNotFoundError:
+        return "0.0.0"
 
 
 def _run_coro_in_thread(coro_factory: callable[[], Any]) -> Any:
@@ -409,7 +421,7 @@ class ThunderDots:
                     collections,
                     resource_results,
                     self._stats,
-                    __version__,
+                    _package_version(),
                     collection_metadata_dublincore=self.config.collection_params.metadata_dublincore,
                     collection_metadata_extensions=self.config.collection_params.metadata_extensions,
                 )
