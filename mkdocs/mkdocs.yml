@@ -1,7 +1,7 @@
 site_name: ThunderDots
 site_description: DTS client and TEI fragmentation toolkit for digital humanities corpora.
-site_url: https://chartes.github.io/thunderdots/
-repo_url: https://github.com/chartes/thunderdots
+site_url: https://dots-suite.github.io/thunderdots/
+repo_url: https://github.com/dots-suite/thunderdots
 repo_name: chartes/thunderdots
 edit_uri: edit/main/mkdocs/docs/
 
@@ -83,7 +83,7 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/chartes/thunderdots
+      link: https://github.com/dots-suite/thunderdots
 
 extra_css:
   - stylesheets/extra.css
