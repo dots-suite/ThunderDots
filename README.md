@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <strong>DTS crawling, TEI fragmentation, metadata filtering, validation, and export pipelines.</strong>
+  <strong>DTS scrapping, TEI fragmentation, metadata filtering, validation, and export pipelines.</strong>
 </p>
 
 <p align="center">
