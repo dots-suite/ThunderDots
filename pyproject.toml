@@ -42,9 +42,7 @@ docs = [
     "ipykernel",
 ]
 
-all = [
-    "thunderdots[dev,docs]",
-]
+all = []
 
 [project.urls]
 Homepage = "https://github.com/chartes/thunderdots"
@@ -62,3 +60,11 @@ local_scheme = "no-local-version"
 
 [tool.ruff]
 line-length = 100
+
+[tool.uv.sources]
+thunderdots = { workspace = true }
+
+[dependency-groups]
+dev = [
+#    "thunderdots",
+]

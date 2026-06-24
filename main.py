@@ -33,13 +33,13 @@ from thunderdots import ThunderDots
 
 
 ENDPOINT_DTS = "https://dev.chartes.psl.eu/dots/api/dts"
-COLLECTION_ID = "ENCPOS_1972"
+COLLECTION_ID = "cid"
 
 OUT_DIR = Path("out_results")
 
 HTTP_PARAMS = {
-    "concurrency": 8,
-    "request_timeout": 15.0,
+    "concurrency": 20,
+    "request_timeout": 10.0,
     "retries": 2,
     "backoff_ms": 300,
 }
@@ -237,7 +237,7 @@ def print_first_items(results: dict[str, Any], *, limit: int = 3) -> None:
         if fragments:
             first_fragment = fragments[0]
             print("    First fragment:")
-            print(f"      dots_id   : {first_fragment.get('dots_id')}")
+            print(f"      id   : {first_fragment.get('id')}")
             print(f"      level     : {first_fragment.get('level')}")
             print(f"      head      : {first_fragment.get('head')}")
             print(f"      breadcrumb: {first_fragment.get('breadcrumb')}")
@@ -312,7 +312,7 @@ def write_summary_txt(
         for index, fragment in enumerate(fragments, start=1):
             lines.append("-" * 100)
             lines.append(f"Fragment {index}")
-            lines.append(f"dots_id   : {fragment.get('dots_id')}")
+            lines.append(f"id   : {fragment.get('id')}")
             lines.append(f"level     : {fragment.get('level')}")
             lines.append(f"head      : {fragment.get('head')}")
             lines.append(f"breadcrumb: {fragment.get('breadcrumb')}")

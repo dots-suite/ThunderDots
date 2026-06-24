@@ -17,7 +17,7 @@ from typing import Any
 
 from .ui import UI
 from .stats import Stats
-from .config import ThunderDotsConfig, CollectionParams, ResourceParams
+from .config import ThunderDotsConfig, CollectionParams, ResourceParams, FragmentsParams
 from .fetcher import HttpxFetcher, Fetcher
 from .extract.walker import walk_collections
 from .extract.resources import fetch_resources
@@ -106,6 +106,7 @@ class ThunderDots:
         fetch_resource_metadata: bool = True,
         collection_params: dict[str, Any] | None = None,
         resource_params: dict[str, Any] | None = None,
+        fragment_params: dict[str, Any] | None = None,
         validate: bool = False,
         validation_profile: str = "dts",
         verbose: bool = True,
@@ -130,6 +131,8 @@ class ThunderDots:
         :type collection_params: dict[str, Any] | None
         :param resource_params: Dictionary of parameters for resource fetching/filtering (default: None).
         :type resource_params: dict[str, Any] | None
+        :param fragment_params: Dictionary of parameters for fragment fetching/filtering (default: None).
+        :type fragment_params: dict[str, Any] | None
         :param verbose: Whether to enable verbose logging and UI (default: True).
         :type verbose: bool
         :param concurrency: Number of concurrent fetches for Python fetcher (default: 20
@@ -160,6 +163,7 @@ class ThunderDots:
             validation_profile=validation_profile,
             collection_params=CollectionParams.from_dict(collection_params),
             resource_params=ResourceParams.from_dict(resource_params),
+            fragment_params=FragmentsParams.from_dict(fragment_params),
             verbose=verbose,
             concurrency=int(concurrency),
             timeout=float(timeout),

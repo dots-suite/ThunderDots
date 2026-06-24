@@ -6,10 +6,12 @@ Extract text fragments from TEI XML, using optional navigation JSON for structur
 """
 
 from __future__ import annotations
+
 import unicodedata
 import hashlib
 from copy import deepcopy
 from lxml import etree
+import warnings
 
 
 NS = {"tei": "http://www.tei-c.org/ns/1.0"}
@@ -167,7 +169,7 @@ def extract_fragments_by_xpath(
         :param generated_id_prefix: Prefix to use for generated fragment IDs when xml:id is not
         present (default: "__DOCUMENT__")
         :type generated_id_prefix: str
-        :return: List of dictionaries representing extracted fragments, each containing keys like "dots_id",
+        :return: List of dictionaries representing extracted fragments, each containing keys like "id",
                     "head", "content", "fragment_xpath", "fragment_index", and optionally "breadcrumb"
         :rtype: list[dict]
     """
@@ -209,7 +211,7 @@ def extract_fragments_by_xpath(
         )
 
         item = {
-            "dots_id": dots_id,
+            "id": dots_id,
             "head": head,
             "content": content,
             "fragment_xpath": fragment_xpath,
@@ -530,7 +532,7 @@ def extract_document_text_fast(
         (default: True)
         :type include_breadcrumb: bool
         :return: A list containing a single dictionary representing the entire document text, with keys like
-                    "dots_id", "content", and optionally "breadcrumb"
+                    "id", "content", and optionally "breadcrumb"
         :rtype: list[dict]
     """
     root = _parse_tei_xml(tei_xml)
@@ -547,7 +549,7 @@ def extract_document_text_fast(
         )
 
     item = {
-        "dots_id": "__DOCUMENT__",
+        "id": "__DOCUMENT__",
         "content": _normalize_ws(text),
     }
 
@@ -563,6 +565,7 @@ def extract_fragments(
     add_head_to_content: bool = True,
     exclude_heads_contains: list[str] | None = None,
     include_breadcrumb: bool = True,
+    fragment_metadata_dublincore_params: list[str] | None = None,
 ):
     """Extract text fragments from TEI XML using navigation JSON for structure, with options for handling headings and generating breadcrumbs.
 
@@ -579,7 +582,9 @@ def extract_fragments(
     :param include_breadcrumb: Whether to include a breadcrumb field in the output with the head
     (default: True)
     :type include_breadcrumb: bool
-    :return: A list of dictionaries representing extracted fragments, each containing keys like "dots_id
+    :param fragment_metadata_dublincore_params: Optional list of Dublin Core metadata keys to include in the fragment metadata (default: None)
+    :type fragment_metadata_dublincore_params: dict | None
+    :return: A list of dictionaries representing extracted fragments, each containing keys like "id
                 "head", "content", "level", and optionally "breadcrumb"
     :rtype: list[dict]
     """
@@ -599,7 +604,10 @@ def extract_fragments(
     nav_idx: dict[str, dict] = {}
     fragment_ids: set[str] = set()
 
+    metadata_filter_frags = fragment_metadata_dublincore_params
     for m in members:
+        # print("Processing member:", m)
+        # sys.exit()
         mid = _nav_identifier(m)
         if not mid:
             continue
@@ -609,7 +617,11 @@ def extract_fragments(
             "parent": _parent_id(m),
             "title": _nav_title(m),
             "level": m.get("level"),
+            # "citeType": m.get("citeType"),
+            # "frag_metadata_dublincore": {k:v for k, v in m.get("dublinCore").items() if k in metadata_filter_frags},
         }
+        # if mid == "art_01":
+        #    print("nav_idx entry:", nav_idx[mid])
 
     fragments = []
     for m in members:
@@ -636,11 +648,23 @@ def extract_fragments(
         else:
             content = _normalize_ws(content)
 
+        dublin_core = m.get("dublinCore") or {}
+        fragment_metadata_dublincore = {
+            key: value for key, value in dublin_core.items() if key in metadata_filter_frags
+        }
+        fragment_title = fragment_metadata_dublincore.get("title")
+        if fragment_title is not None and head != fragment_title:
+            warnings.warn(
+                f"head from TEI={head!r} differs from fragment DC:title={fragment_title!r} for fragment identifier={xml_id!r}",
+                UserWarning,
+            )
         item = {
-            "dots_id": xml_id,
+            "id": xml_id,
             "level": m.get("level"),
             "head": head,
             "content": content,
+            "citeType": m.get("citeType"),
+            "metadata_dublincore": fragment_metadata_dublincore,
         }
         if include_breadcrumb:
             item["breadcrumb"] = _breadcrumb(nav_idx, xml_id)

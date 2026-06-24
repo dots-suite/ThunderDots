@@ -70,7 +70,7 @@ def iter_fragment_documents(results: dict):
             yield {
                 "id": f"{resource_id}__frag_{index}",
                 "record_id": resource_id,
-                "dots_id": fragment.get("dots_id"),
+                "id": fragment.get("id"),
                 "title": title,
                 "head": fragment.get("head"),
                 "breadcrumb": fragment.get("breadcrumb"),

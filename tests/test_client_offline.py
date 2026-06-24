@@ -76,7 +76,7 @@ def test_client_offline_xpath_mode_uses_configured_xpath(patch_client_fetcher) -
     td.fetch()
     first = td.results()["resource_results"][0]
 
-    assert {fragment["dots_id"] for fragment in first["fragments"]} == {"intro", "chap1"}
+    assert {fragment["id"] for fragment in first["fragments"]} == {"intro", "chap1"}
     assert all("fragment_xpath" in fragment for fragment in first["fragments"])
 
 

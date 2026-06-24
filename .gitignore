@@ -32,3 +32,6 @@ site/
 
 *.egg-info/
 __version__.py
+
+output_cid.json
+output_encpos.json

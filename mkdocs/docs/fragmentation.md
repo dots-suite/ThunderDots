@@ -6,7 +6,7 @@ A minimal fragment looks like this:
 
 ```python
 {
-    "dots_id": "...",
+    "id": "...",
     "content": "...",
 }
 ```

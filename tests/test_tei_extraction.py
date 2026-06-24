@@ -15,7 +15,7 @@ def test_document_mode_extracts_single_global_fragment_without_heads() -> None:
     fragments = extract_document_text_fast(xml, add_head_to_content=False, include_breadcrumb=True)
 
     assert len(fragments) == 1
-    assert fragments[0]["dots_id"] == "__DOCUMENT__"
+    assert fragments[0]["id"] == "__DOCUMENT__"
     assert "L’origine de Jean d’Alençon" in fragments[0]["content"]
     assert "Chapitre I" not in fragments[0]["content"]
     assert fragments[0]["breadcrumb"] == ""
@@ -34,7 +34,7 @@ def test_navigation_mode_uses_nav_ids_and_filters_unwanted_heads() -> None:
         include_breadcrumb=True,
     )
 
-    assert [fragment["dots_id"] for fragment in fragments] == ["intro", "chap1"]
+    assert [fragment["id"] for fragment in fragments] == ["intro", "chap1"]
     assert fragments[0]["head"] == "Introduction"
     assert "Texte introductif utile" in fragments[0]["content"]
     assert all("Annexe à exclure" not in fragment["content"] for fragment in fragments)
@@ -54,7 +54,7 @@ def test_xpath_mode_extracts_divisions_with_xml_ids() -> None:
         include_breadcrumb=True,
     )
 
-    assert [fragment["dots_id"] for fragment in fragments] == ["intro", "chap1"]
+    assert [fragment["id"] for fragment in fragments] == ["intro", "chap1"]
     assert fragments[1]["head"] == "Chapitre I (1405-1415)"
     assert "Chapitre I" not in fragments[1]["content"]
     assert fragments[1]["breadcrumb"] == "Chapitre I (1405-1415)"
@@ -78,8 +78,8 @@ def test_xpath_mode_generates_stable_ids_when_xml_id_is_missing() -> None:
     )
 
     assert fragments_a
-    assert fragments_a[0]["dots_id"].startswith("__TEST__")
-    assert [f["dots_id"] for f in fragments_a] == [f["dots_id"] for f in fragments_b]
+    assert fragments_a[0]["id"].startswith("__TEST__")
+    assert [f["id"] for f in fragments_a] == [f["id"] for f in fragments_b]
 
 
 def test_xpath_mode_handles_dts_wrapper_documents() -> None:
@@ -96,5 +96,5 @@ def test_xpath_mode_handles_dts_wrapper_documents() -> None:
     )
 
     assert len(fragments) == 1
-    assert fragments[0]["dots_id"] == "transcription"
+    assert fragments[0]["id"] == "transcription"
     assert "Rotbertus" in fragments[0]["content"]

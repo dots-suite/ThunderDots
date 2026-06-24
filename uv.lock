@@ -2616,17 +2616,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-all = [
-    { name = "build" },
-    { name = "ipykernel" },
-    { name = "jupyter" },
-    { name = "mkdocs" },
-    { name = "mkdocs-jupyter" },
-    { name = "mkdocs-material" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "twine" },
-]
 dev = [
     { name = "build" },
     { name = "pytest" },
@@ -2658,11 +2647,13 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
     { name = "rich", specifier = ">=14.3.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.1" },
-    { name = "thunderdots", extras = ["dev", "docs"], marker = "extra == 'all'" },
     { name = "tqdm", specifier = ">=4.67.3" },
     { name = "twine", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev", "docs", "all"]
+
+[package.metadata.requires-dev]
+dev = []
 
 [[package]]
 name = "tinycss2"

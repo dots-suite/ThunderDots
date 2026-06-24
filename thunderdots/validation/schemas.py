@@ -49,9 +49,9 @@ RESOURCE_SCHEMA = {
 
 FRAGMENT_SCHEMA = {
     "type": "object",
-    "required": ["dots_id", "content"],
+    "required": ["id", "content"],
     "properties": {
-        "dots_id": {"type": "string"},
+        "id": {"type": "string"},
         "content": {"type": "string"},
         "head": {"type": ["string", "null"]},
         "breadcrumb": {"type": ["string", "null"]},

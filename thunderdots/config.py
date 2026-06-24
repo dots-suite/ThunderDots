@@ -183,6 +183,28 @@ class ResourceParams:
 
 
 @dataclass(slots=True)
+class FragmentsParams:
+    metadata_dublincore: list[str] | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any] | None) -> "FragmentsParams":
+        d = d or {}
+        if d.get("keep_metadata"):
+            warnings.warn(
+                "'keep_metadata' is deprecated. Use 'metadata_dublincore' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        legacy_dc, _ = _split_legacy_metadata_paths(_as_list(d.get("keep_metadata")))
+        metadata_dublincore = _optional_list(d, "metadata_dublincore")
+        return cls(
+            metadata_dublincore=metadata_dublincore
+            if metadata_dublincore is not None
+            else legacy_dc or None,
+        )
+
+
+@dataclass(slots=True)
 class ThunderDotsConfig:
     """Configuration for ThunderDots, including endpoint URL, options for fetching metadata, validation settings, parameters for collections and resources, concurrency and timeout settings, and output paths."""
 
@@ -193,6 +215,7 @@ class ThunderDotsConfig:
     validation_profile: str = "dts"
     collection_params: CollectionParams = field(default_factory=CollectionParams)
     resource_params: ResourceParams = field(default_factory=ResourceParams)
+    fragment_params: FragmentsParams = field(default_factory=FragmentsParams)
     verbose: bool = True
     concurrency: int = 20
     timeout: float = 30.0

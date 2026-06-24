@@ -108,6 +108,21 @@ resource_params = {
 | `remove_fragment_heads` | `bool` | `True` | Remove local `<head>` nodes from fragment content in `tei_xpath` mode. |
 | `generated_id_prefix` | `str` | `"__DOCUMENT__"` | Prefix for generated fragment IDs when no `xml:id` is available. |
 
+## Fragment parameters
+
+`fragment_params` is converted internally to a `FragmentsParams` dataclass.
+
+```
+fragment_params = {
+    "metadata_dublincore": ["title", "creator", "date"],
+}
+```
+
+| Parameter |       Type | Default | Role |
+|---|-----------:|---:|---|
+| `metadata_dublincore` |`list[str]`  | `None` | Dublin Core fragment fields. `None` keeps all fields; `[]` keeps none. | 
+
+
 ## Fragmentation modes
 
 ### `auto`
