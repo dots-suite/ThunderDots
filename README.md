@@ -29,7 +29,7 @@
 
 ## Overview
 
-**ThunderDots** is a Python client for [DTS](https://dtsapi.org/specifications/) (*Distributed Text Services*) endpoints, initially built for [DoTS](https://chartes.github.io/dots_documentation/).
+**ThunderDots** is a Python client for [DTS](https://dtsapi.org/specifications/) (*Distributed Text Services*) endpoints, initially built for [DoTS](https://dots-suite.github.io/dots_documentation/).
 
 It helps you move from a remote DTS API to structured Python objects and JSON records that can feed indexing pipelines, including full-text search, RAG/vector databases, and corpus-analysis workflows.
 
