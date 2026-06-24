@@ -52,15 +52,17 @@ collection_params = {
     "excluded_ids": ["COLLECTION_TO_SKIP"],
     "metadata_dublincore": ["title"],
     "metadata_extensions": [],
+    "fetch_linked_parents": True,
 }
 ```
 
-| Parameter | Type | Default | Role |
-|---|---:|---:|---|
+| Parameter | Type | Default | Role                                                                             |
+|---|---:|---:|----------------------------------------------------------------------------------|
 | `collection_id` | `str \| None` | `None` | Starting collection. `None` or an empty value starts at the DTS root collection. |
-| `excluded_ids` | `list[str]` | `[]` | Collections or resources to ignore during traversal. |
+| `excluded_ids` | `list[str]` | `[]` | Collections or resources to ignore during traversal.                             |
 | `metadata_dublincore` | `list[str] \| None` | `None` | Dublin Core collection fields to keep. `None` keeps all fields; `[]` keeps none. |
-| `metadata_extensions` | `list[str] \| None` | `None` | Extension collection fields to keep. `None` keeps all fields; `[]` keeps none. |
+| `metadata_extensions` | `list[str] \| None` | `None` | Extension collection fields to keep. `None` keeps all fields; `[]` keeps none.   |
+| `fetch_linked_parents` | `bool` | `True` | Fetch linked parent collections for the current collection.                      |
 
 ### Metadata filtering semantics
 
@@ -90,23 +92,25 @@ resource_params = {
     "metadata_extensions": ["dct:coverage"],
     "add_head_to_content": False,
     "include_breadcrumb": True,
+    "fetch_linked_parents": True,
 }
 ```
 
-| Parameter | Type | Default | Role |
-|---|---:|---:|---|
-| `metadata_dublincore` | `list[str] \| None` | `None` | Dublin Core resource fields. `None` keeps all fields; `[]` keeps none. |
-| `metadata_extensions` | `list[str] \| None` | `None` | Extension resource fields. `None` keeps all fields; `[]` keeps none. |
-| `add_head_to_content` | `bool` | `True` | Add headings to extracted text. |
-| `include_breadcrumb` | `bool` | `True` | Add a `breadcrumb` field to fragments when available. |
+| Parameter | Type | Default | Role                                                                                                                |
+|---|---:|---:|---------------------------------------------------------------------------------------------------------------------|
+| `metadata_dublincore` | `list[str] \| None` | `None` | Dublin Core resource fields. `None` keeps all fields; `[]` keeps none.                                              |
+| `metadata_extensions` | `list[str] \| None` | `None` | Extension resource fields. `None` keeps all fields; `[]` keeps none.                                                |
+| `add_head_to_content` | `bool` | `True` | Add headings to extracted text.                                                                                     |
+| `include_breadcrumb` | `bool` | `True` | Add a `breadcrumb` field to fragments when available.                                                               |
 | `exclude_heads_contains` | `list[str]` | `[]` | Exclude fragments whose heading contains one of these strings. Matching is case-insensitive and accent-insensitive. |
-| `fetch_document` | `bool` | `True` | Fetch `/document`. If `False`, resources are returned without text fragments. |
-| `fetch_navigation` | `bool` | `True` | Fetch `/navigation` when needed by `navigation` or `auto` mode. |
-| `fragment_mode` | `str` | `"auto"` | Fragmentation strategy: `auto`, `navigation`, `document`, or `tei_xpath`. |
-| `fragment_xpath` | `str \| None` | `None` | TEI XPath used when `fragment_mode="tei_xpath"`. Required for `tei_xpath`. |
-| `title_xpath` | `str` | `"./tei:head"` | Local heading XPath used in `tei_xpath` mode. |
-| `remove_fragment_heads` | `bool` | `True` | Remove local `<head>` nodes from fragment content in `tei_xpath` mode. |
-| `generated_id_prefix` | `str` | `"__DOCUMENT__"` | Prefix for generated fragment IDs when no `xml:id` is available. |
+| `fetch_document` | `bool` | `True` | Fetch `/document`. If `False`, resources are returned without text fragments.                                       |
+| `fetch_navigation` | `bool` | `True` | Fetch `/navigation` when needed by `navigation` or `auto` mode.                                                     |
+| `fetch_linked_parents` | `bool` | `True` | Fetch linked parent collections for each resource.                                                                  |
+| `fragment_mode` | `str` | `"auto"` | Fragmentation strategy: `auto`, `navigation`, `document`, or `tei_xpath`.                                           |
+| `fragment_xpath` | `str \| None` | `None` | TEI XPath used when `fragment_mode="tei_xpath"`. Required for `tei_xpath`.                                          |
+| `title_xpath` | `str` | `"./tei:head"` | Local heading XPath used in `tei_xpath` mode.                                                                       |
+| `remove_fragment_heads` | `bool` | `True` | Remove local `<head>` nodes from fragment content in `tei_xpath` mode.                                              |
+| `generated_id_prefix` | `str` | `"__DOCUMENT__"` | Prefix for generated fragment IDs when no `xml:id` is available.                                                    |
 
 ## Fragment parameters
 

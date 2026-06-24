@@ -1,136 +1,218 @@
 # -*- coding: utf-8 -*-
 
 """walker.py
-
-Iterate over a collection and its sub-collections, fetching their data and the data of their resources.
-Using traversal (BFS) with a queue and a set of seen IDs to avoid cycles/dedupes.
+Walk DTS collections and discover their resources using
+Breadth-First Search (BFS) traversal. For each collection or resource,
+resolve its direct parent collections using the Linked Parents API.
 """
 
 from __future__ import annotations
 
-from typing import Tuple, List, Optional
 import asyncio
+from typing import Any
+
+from .parents import LinkedParentsResolver
 
 
-async def _fetch_collection(fetcher, cid, stats, ui=None):
-    """Fetch a collection by ID, with error handling and stats tracking.
+CollectionEntry = tuple[dict[str, Any], list[str]]
+ResourceEntry = tuple[dict[str, Any], list[str]]
 
-    :param fetcher: Fetcher instance to use for HTTP requests
-    :type fetcher: Fetcher
-    :param cid: Collection ID to fetch (None for root collection)
-    :type cid: Optional[str]
-    :param stats: Stats object to track HTTP errors
+
+async def _fetch_collection(
+    fetcher: Any,
+    collection_id: str,
+    stats: Any,
+    ui: Any = None,
+) -> dict[str, Any] | None:
+    """Fetch one DTS collection or resource description.
+
+    :param fetcher: An object with a ``get_json`` method for fetching DTS JSON.
+    :type fetcher: Any
+    :param collection_id: The DTS collection or resource identifier.
+    :type collection_id: str
+    :param stats: An object with an ``http_errors`` attribute for tracking errors.
     :type stats: Any
-    :param ui: Optional UI object for debug messages
+    :param ui: An optional UI object for logging debug messages.
     :type ui: Any, optional
-    :return: Collection data as a dict, or None if an error occurred
-    :rtype: Optional[dict]
+    :return: The DTS collection or resource description as a dictionary, or ``None`` on
+                failure.
+    :rtype: dict[str, Any] | None
     """
-    params = {"id": cid} if cid else {}
+
+    params = {"id": collection_id} if collection_id else {}
+
     try:
         data = await fetcher.get_json("/collection", params=params)
+
         if data is None:
-            raise RuntimeError("non-200")
+            raise RuntimeError("empty or non-successful DTS response")
+
         return data
-    except Exception as e:
-        stats.http_errors += 1
+
+    except Exception as exc:
+        # HttpxFetcher already records HTTP failures. This increment remains
+        # useful for custom fetchers that raise without managing Stats.
+        if fetcher.__class__.__name__ != "HttpxFetcher":
+            stats.http_errors += 1
+
         if ui:
-            ui.debug(f"[ThunderDots] skip collection {cid} → {e}")
+            ui.debug(f"[ThunderDots] skip collection {collection_id or '<root>'} → {exc}")
+
         return None
 
 
-async def walk_collections(fetcher, config, stats, ui=None) -> Tuple[List[dict], List[dict]]:
-    """Walk a collection and its sub-collections, fetching their data and the data of their resources.
+async def walk_collections(
+    fetcher: Any,
+    config: Any,
+    stats: Any,
+    ui: Any = None,
+) -> tuple[list[CollectionEntry], list[ResourceEntry]]:
+    """Walk collections and resolve direct parents for every DTS object.
 
-    :param fetcher: Fetcher instance to use for HTTP requests
-    :type fetcher: Fetcher
-    :param config: ThunderDotsConfig instance with configuration parameters
-    :type config: ThunderDotsConfig
-    :param stats: Stats object to track HTTP errors
+    :param fetcher: An object with a ``get_json`` method for fetching DTS JSON.
+    :type fetcher: Any
+    :param config: A configuration object with collection and resource parameters.
+    :type config: Any
+    :param stats: An object with an ``http_errors`` attribute for tracking errors.
     :type stats: Any
-    :param ui: Optional UI object for progress updates
+    :param ui: An optional UI object for logging debug messages.
     :type ui: Any, optional
-    :return: Tuple of (collections, resources) where each is a list of dicts
-    :rtype: Tuple[List[dict], List[dict]]
+    :return: A tuple containing two lists: one for collections and one for resources.
+    :rtype: tuple[list[CollectionEntry], list[ResourceEntry]]
     """
+
     concurrency = max(1, int(config.concurrency))
 
-    collections: list[tuple[dict, list[str]]] = []
-    resources: list[tuple[dict, list[str]]] = []
+    collections: list[CollectionEntry] = []
+    resources: list[ResourceEntry] = []
 
-    # items queue : (collection_id, parent_ids)
-    q: asyncio.Queue[Optional[tuple[str, list[str]]]] = asyncio.Queue()
-    await q.put((config.collection_params.collection_id or "", []))
+    # Queue items contain:
+    #     (object identifier, direct parent discovered during traversal)
+    queue: asyncio.Queue[tuple[str, list[str]] | None] = asyncio.Queue()
+
+    await queue.put(
+        (
+            config.collection_params.collection_id or "",
+            [],
+        )
+    )
 
     excluded = set(config.collection_params.excluded_ids or [])
 
-    # seen collection/resource IDs to avoid cycles and duplicates
     seen: set[str] = set()
     seen_lock = asyncio.Lock()
 
-    walked = 0
-    out_lock = asyncio.Lock()
+    output_lock = asyncio.Lock()
     walked_lock = asyncio.Lock()
 
-    SENTINEL: Optional[tuple[str, list[str]]] = None
+    walked = 0
+
+    parents_resolver = LinkedParentsResolver(
+        fetcher,
+        ui=ui,
+    )
+
+    sentinel = None
 
     async def worker() -> None:
-        """Worker coroutine to process items from the queue."""
         nonlocal walked
+
         while True:
-            item = await q.get()
+            queue_item = await queue.get()
+
             try:
-                if item is SENTINEL:
+                if queue_item is sentinel:
                     return
 
-                cid, parents = item
-                data = await _fetch_collection(fetcher, cid, stats, ui=ui)
+                object_id, traversal_parents = queue_item
+
+                data = await _fetch_collection(
+                    fetcher,
+                    object_id,
+                    stats,
+                    ui=ui,
+                )
+
                 if data is None:
-                    continue  # important: skip counting as walked if fetch failed
+                    continue
+
+                current_id = str(data.get("@id") or object_id or "").strip()
+                object_type = str(data.get("@type") or "Collection")
+
+                if object_type == "Resource":
+                    fetch_parents = bool(config.resource_params.fetch_linked_parents)
+                else:
+                    fetch_parents = bool(config.collection_params.fetch_linked_parents)
+
+                if fetch_parents:
+                    linked_parents = await parents_resolver.resolve(
+                        current_id,
+                        fallback=traversal_parents,
+                    )
+                else:
+                    linked_parents = list(traversal_parents)
 
                 async with walked_lock:
                     walked += 1
-                    cur_walked = walked
+                    current_walked = walked
 
-                typ = data.get("@type")
-                if typ == "Resource":
-                    async with out_lock:
-                        resources.append((data, parents))
+                if object_type == "Resource":
+                    async with output_lock:
+                        resources.append((data, linked_parents))
+
                 else:
-                    async with out_lock:
-                        collections.append((data, parents))
+                    async with output_lock:
+                        collections.append((data, linked_parents))
 
-                    parent_id = data.get("@id")
-                    for m in data.get("member") or []:
-                        mid = (m or {}).get("@id")
-                        if not mid or mid in excluded:
+                    for member in data.get("member") or []:
+                        if not isinstance(member, dict):
+                            continue
+
+                        member_id = member.get("@id")
+
+                        if not isinstance(member_id, str):
+                            continue
+
+                        member_id = member_id.strip()
+
+                        if not member_id or member_id in excluded:
                             continue
 
                         async with seen_lock:
-                            if mid in seen:
+                            if member_id in seen:
                                 continue
-                            seen.add(mid)
 
-                        await q.put((mid, parents + [parent_id]))
+                            seen.add(member_id)
+
+                        # The traversal fallback represents a direct parent,
+                        # not the complete ancestor chain.
+                        direct_fallback = [current_id] if current_id else []
+
+                        await queue.put(
+                            (
+                                member_id,
+                                direct_fallback,
+                            )
+                        )
 
                 if ui:
                     ui.update_collections(
-                        walked=cur_walked,
+                        walked=current_walked,
                         collections=len(collections),
                         resources=len(resources),
                         http_errors=stats.http_errors,
                     )
+
             finally:
-                q.task_done()
+                queue.task_done()
 
     workers = [asyncio.create_task(worker()) for _ in range(concurrency)]
 
-    # Wait until all items have been processed (queue is empty and all tasks are done)
-    await q.join()
+    await queue.join()
 
-    # Stop workers by sending sentinel values
     for _ in range(concurrency):
-        await q.put(SENTINEL)
+        await queue.put(sentinel)
+
     await asyncio.gather(*workers)
 
     if ui:

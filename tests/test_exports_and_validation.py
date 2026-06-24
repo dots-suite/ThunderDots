@@ -63,12 +63,8 @@ def test_elasticsearch_exports_include_expected_fields(patch_client_fetcher) -> 
     )
     td.fetch()
 
-    docs = td.to_elastic_documents(include_fragments=True, include_raw=False)
     actions = td.to_elastic_actions(index="thunderdots-test", include_fragments=False)
 
-    assert docs[0]["id"].startswith("ENCPOS_2025_")
-    assert docs[0]["text"]
-    assert "fragments" in docs[0]
     assert actions[0]["_index"] == "thunderdots-test"
     assert "fragments" not in actions[0]["_source"]
 

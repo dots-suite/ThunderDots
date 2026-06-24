@@ -84,3 +84,49 @@ def test_online_fetch_navigation_mode_for_encpos_1907() -> None:
 
     assert td.results()["resource_results"]
     assert any(resource.get("fragments") for resource in td.results()["resource_results"])
+
+
+@pytest.mark.network
+@pytest.mark.parametrize(
+    ("object_id", "expected_parent"),
+    [
+        ("ENCPOS_1972", "ENCPOS"),
+        ("ENCPOS_1972_02", "ENCPOS_1972"),
+    ],
+)
+def test_online_fetch_linked_parents(
+    object_id: str,
+    expected_parent: str,
+) -> None:
+    stats = Stats()
+    stats.start()
+    fetcher = HttpxFetcher(
+        endpoint=ENDPOINT_DTS,
+        timeout=20.0,
+        concurrency=2,
+        retries=2,
+        backoff_ms=300,
+        stats=stats,
+    )
+    import asyncio
+
+    async def run() -> dict:
+        try:
+            payload = await fetcher.get_json(
+                "/collection",
+                params={
+                    "id": object_id,
+                    "nav": "parents",
+                },
+            )
+            return payload or {}
+        finally:
+            await fetcher.aclose()
+
+    payload = asyncio.run(run())
+    parent_ids = [
+        member.get("@id")
+        for member in payload.get("member", [])
+        if isinstance(member, dict) and member.get("@id")
+    ]
+    assert expected_parent in parent_ids

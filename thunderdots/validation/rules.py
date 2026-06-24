@@ -52,6 +52,7 @@ RESOURCE_RULES = [
 RESOURCE_RESULT_RULES = [
     FieldRule("id", required=True, types=("str",)),
     FieldRule("title", required=False, types=("str", "null")),
+    FieldRule("linked_parents", required=True, types=("list",)),
     FieldRule("metadata", required=True, types=("dict",)),
     FieldRule("fragments", required=True, types=("list",)),
 ]

@@ -7,6 +7,15 @@ JSON Schemas for validating collections, resources, and output structure.
 
 from __future__ import annotations
 
+LINKED_PARENTS_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "string",
+        "minLength": 0,
+    },
+    "uniqueItems": True,
+}
+
 COLLECTION_SCHEMA = {
     "type": "object",
     "required": ["@id", "@type"],
@@ -25,7 +34,6 @@ COLLECTION_SCHEMA = {
     },
     "additionalProperties": True,
 }
-
 
 RESOURCE_SCHEMA = {
     "type": "object",
@@ -46,7 +54,6 @@ RESOURCE_SCHEMA = {
     "additionalProperties": True,
 }
 
-
 FRAGMENT_SCHEMA = {
     "type": "object",
     "required": ["id", "content"],
@@ -60,14 +67,13 @@ FRAGMENT_SCHEMA = {
     "additionalProperties": True,
 }
 
-
 RESOURCE_RESULT_SCHEMA = {
     "type": "object",
     "required": ["id", "metadata", "fragments"],
     "properties": {
         "id": {"type": "string"},
         "title": {"type": ["string", "null"]},
-        "linked_parents": {"type": "array"},
+        "linked_parents": LINKED_PARENTS_SCHEMA,
         "metadata": {"type": "object"},
         "fragments": {
             "type": "array",
@@ -77,6 +83,35 @@ RESOURCE_RESULT_SCHEMA = {
     "additionalProperties": True,
 }
 
+COLLECTION_RESULT_SCHEMA = {
+    "type": "object",
+    "required": [
+        "@id",
+        "@type",
+        "linked_parents",
+        "metadata",
+        "member",
+    ],
+    "properties": {
+        "@id": {
+            "type": ["string", "null"],
+        },
+        "@type": {
+            "type": ["string", "null"],
+        },
+        "title": {
+            "type": ["string", "null"],
+        },
+        "linked_parents": LINKED_PARENTS_SCHEMA,
+        "metadata": {
+            "type": "object",
+        },
+        "member": {
+            "type": "array",
+        },
+    },
+    "additionalProperties": True,
+}
 
 OUTPUT_SCHEMA = {
     "type": "object",
@@ -85,7 +120,10 @@ OUTPUT_SCHEMA = {
         "dtsVersion": {"type": "string"},
         "type": {"type": "string"},
         "meta": {"type": "object"},
-        "collection_results": {"type": "array"},
+        "collection_results": {
+            "type": "array",
+            "items": COLLECTION_RESULT_SCHEMA,
+        },
         "resource_results": {
             "type": "array",
             "items": RESOURCE_RESULT_SCHEMA,
@@ -93,7 +131,6 @@ OUTPUT_SCHEMA = {
     },
     "additionalProperties": True,
 }
-
 
 SCHEMAS = {
     "collection": COLLECTION_SCHEMA,

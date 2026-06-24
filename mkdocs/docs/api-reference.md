@@ -52,8 +52,7 @@ td.notices()
 ### Exports
 
 ```python
-td.to_elastic_documents(include_fragments=True, include_raw=False)
-td.to_elastic_actions(index="my_index", include_fragments=True, include_raw=False)
+td.to_elastic_actions(index="my_index")
 td.to_qdrant_payloads(include_fragments=True, include_raw=False)
 td.to_qdrant_points(vectors=vectors, include_fragments=True, include_raw=False)
 ```

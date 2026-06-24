@@ -44,41 +44,80 @@ class FixtureFetcher:
 
     def __init__(self) -> None:
         self.collection = load_json("collection_encpos_2025.json")
+
         self.resources = {
             "ENCPOS_2025_01": load_json("resource_encpos_2025_01.json"),
             "ENCPOS_2025_02": self.collection["member"][1],
         }
+
+        self.parents = {
+            "ENCPOS_2025": ["ENCPOS"],
+            "ENCPOS_2025_01": ["ENCPOS_2025"],
+            "ENCPOS_2025_02": ["ENCPOS_2025"],
+        }
+
         self.navigation = {
             "ENCPOS_2025_01": load_json("navigation_encpos_2025_01.json"),
             "ENCPOS_2025_02": load_json("navigation_encpos_2025_01.json"),
         }
+
         self.documents = {
             "ENCPOS_2025_01": load_xml("encpos_1893_05.xml"),
             "ENCPOS_2025_02": load_xml("encpos_1893_05.xml"),
             "SMCP-PR_0004": load_xml("smcp_pr_0004.xml"),
         }
+
         self.calls: list[tuple[str, dict[str, Any] | None]] = []
 
     async def get_json(
-        self, path: str, params: dict[str, Any] | None = None
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         self.calls.append((path, params))
         params = params or {}
+
         if path == "/collection":
-            resource_id = params.get("id") or "ENCPOS_2025"
+            resource_id = str(params.get("id") or "ENCPOS_2025")
+
+            if params.get("nav") == "parents":
+                return {
+                    "@id": resource_id,
+                    "@type": "Collection",
+                    "member": [
+                        {
+                            "@id": parent_id,
+                            "@type": "Collection",
+                        }
+                        for parent_id in self.parents.get(
+                            resource_id,
+                            [],
+                        )
+                    ],
+                }
+
             if resource_id == "ENCPOS_2025":
                 return self.collection
-            return self.resources.get(str(resource_id))
+
+            return self.resources.get(resource_id)
+
         if path == "/navigation":
             return self.navigation.get(str(params.get("resource")))
+
         raise AssertionError(f"Unexpected JSON path: {path}")
 
-    async def get_text(self, path: str, params: dict[str, Any] | None = None) -> str:
+    async def get_text(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+    ) -> str:
         self.calls.append((path, params))
         params = params or {}
+
         if path == "/document":
             resource_id = str(params.get("resource"))
             return self.documents[resource_id]
+
         raise AssertionError(f"Unexpected text path: {path}")
 
     async def aclose(self) -> None:

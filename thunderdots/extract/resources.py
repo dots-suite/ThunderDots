@@ -50,7 +50,7 @@ async def fetch_resources(
     add_head_to_content = bool(config.resource_params.add_head_to_content)
     exclude_heads_contains = list(config.resource_params.exclude_heads_contains or [])
 
-    fragment_dublincore_metadata_params = list(config.fragment_params.metadata_dublincore or [])
+    fragment_dublincore_metadata_params = config.fragment_params.metadata_dublincore
 
     fetch_document = bool(config.resource_params.fetch_document)
     fetch_navigation = bool(config.resource_params.fetch_navigation)

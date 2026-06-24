@@ -17,16 +17,21 @@ if __name__ == "__main__":
     # 4 - bulk import into ES
     td = ThunderDots(
         endpoint_dts="https://dev.chartes.psl.eu/dots/api/dts",
-        collection_params={"collection_id": "ENCPOS"},
+        collection_params={
+            "collection_id": "theater",
+            "metadata_dublincore": ["title", "creator"],
+            "fetch_linked_parents": True,
+        },
         resource_params={
             "fragment_mode": "navigation",
-            "metadata_dublincore": ["title", "creator", "date"],
-            "metadata_extensions": ["dct:coverage"],
+            "metadata_dublincore": ["title", "creator", "coverage", "license"],
+            "metadata_extensions": ["publisher"],
             "add_head_to_content": False,
             "include_breadcrumb": True,
+            "fetch_linked_parents": True,
         },
         fragment_params={
-            "metadata_dublincore": ["creator"],
+            "metadata_dublincore": None,
         },
         use_cache=False,
         **HTTP_PARAMS,
@@ -34,7 +39,7 @@ if __name__ == "__main__":
     td.fetch()
     results = td.results()
 
-    with open("output_encpos.json", "w", encoding="utf-8") as f:
+    with open("output_theater.json", "w", encoding="utf-8") as f:
         import json
 
         json.dump(results, f, ensure_ascii=False, indent=2)

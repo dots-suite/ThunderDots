@@ -649,21 +649,33 @@ def extract_fragments(
             content = _normalize_ws(content)
 
         dublin_core = m.get("dublinCore") or {}
-        fragment_metadata_dublincore = {
-            key: value for key, value in dublin_core.items() if key in metadata_filter_frags
-        }
-        fragment_title = fragment_metadata_dublincore.get("title")
+
+        if metadata_filter_frags is None:
+            fragment_metadata_dublincore = dublin_core
+        elif metadata_filter_frags:
+            fragment_metadata_dublincore = {
+                k: v for k, v in dublin_core.items() if k in metadata_filter_frags
+            }
+        else:
+            fragment_metadata_dublincore = None
+
+        fragment_title = dublin_core.get("title")
+
         if fragment_title is not None and head != fragment_title:
             warnings.warn(
-                f"head from TEI={head!r} differs from fragment DC:title={fragment_title!r} for fragment identifier={xml_id!r}",
+                f"head from TEI={head!r} differs from "
+                f"fragment DC:title={fragment_title!r} "
+                f"for fragment identifier={xml_id!r}",
                 UserWarning,
             )
+
         item = {
             "id": xml_id,
             "level": m.get("level"),
             "head": head,
             "content": content,
             "citeType": m.get("citeType"),
+            "parent": m.get("parent"),
             "metadata_dublincore": fragment_metadata_dublincore,
         }
         if include_breadcrumb:

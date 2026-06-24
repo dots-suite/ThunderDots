@@ -17,20 +17,50 @@ print(first.temporal_index)
 
 ## Elasticsearch
 
+[Elasticsearch](https://www.elastic.co/docs/deploy-manage/deploy/self-managed/installing-elasticsearch) is a popular search engine that can index and search large volumes of text. ThunderDots can prepare payloads for bulk indexing into Elasticsearch.
+
+> Documentation for the [`elasticsearch` Python package](https://elasticsearch-py.readthedocs.io/en/latest/).
+
 ```python
-elastic_docs = td.to_elastic_documents(
-    include_fragments=True,
-    include_raw=False,
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk
+
+# Create an Elasticsearch client
+es = Elasticsearch("http://localhost:9200")
+
+# Prepare bulk indexing actions for Elasticsearch using ThunderDots
+elastic_actions = td.to_elastic_actions(
+    index="my_index"
 )
 
-elastic_actions = td.to_elastic_actions(
-    index="my_index",
-    include_fragments=False,
-    include_raw=False,
-)
+# Perform bulk indexing
+es_response = bulk(es, elastic_actions)
+
+# Force refresh of the index to make the documents searchable immediately
+es.indices.refresh(index="my_index")
+
+# Query the index for documents containing "archives médiévales"
+response = es.search(
+        index="my_index",
+        query={
+            "match": {
+                "text": "archives médiévales",
+            }
+        },
+    )
+
+# Display the search results
+print("-| Search results |-")
+for hit in response["hits"]["hits"]:
+    source = hit["_source"]
+    print(
+            f"- {source.get('id')} | "
+            f"{source.get('title')} | "
+            f"score={hit.get('_score')}"
+        )
 ```
 
-`to_elastic_documents()` returns plain dictionaries. `to_elastic_actions()` returns bulk-style indexing actions.
+- `to_elastic_actions()` returns bulk-style indexing actions.
 
 ## Qdrant
 

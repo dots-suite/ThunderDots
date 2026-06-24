@@ -86,6 +86,7 @@ class CollectionParams:
     excluded_ids: list[str] = field(default_factory=list)
     metadata_dublincore: list[str] | None = None
     metadata_extensions: list[str] | None = None
+    fetch_linked_parents: bool = True
 
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "CollectionParams":
@@ -108,10 +109,10 @@ class CollectionParams:
             )
 
         legacy_dc, legacy_ext = _split_legacy_metadata_paths(_as_list(d.get("keep_metadata")))
-
-        metadata_dublincore = _optional_list(d, "metadata_dublincore")
-        metadata_extensions = _optional_list(d, "metadata_extensions")
-
+        # metadata_dublincore = _optional_list(d, "metadata_dublincore")
+        # metadata_extensions = _optional_list(d, "metadata_extensions")
+        metadata_dublincore = d.get("metadata_dublincore") if d is not None else None
+        metadata_extensions = d.get("metadata_extensions") if d is not None else None
         return cls(
             collection_id=d.get("collection_id"),
             excluded_ids=_as_list(d.get("excluded_ids")),
@@ -121,6 +122,7 @@ class CollectionParams:
             metadata_extensions=(
                 metadata_extensions if metadata_extensions is not None else legacy_ext or None
             ),
+            fetch_linked_parents=bool(d.get("fetch_linked_parents", True)),
         )
 
 
@@ -135,6 +137,7 @@ class ResourceParams:
     exclude_heads_contains: list[str] = field(default_factory=list)
     fetch_document: bool = True
     fetch_navigation: bool = True
+    fetch_linked_parents: bool = True
     fragment_mode: str = "auto"
     fragment_xpath: str | None = None
     title_xpath: str = "./tei:head"
@@ -160,8 +163,10 @@ class ResourceParams:
                 stacklevel=2,
             )
         legacy_dc, legacy_ext = _split_legacy_metadata_paths(_as_list(d.get("keep_metadata")))
-        metadata_dublincore = _optional_list(d, "metadata_dublincore")
-        metadata_extensions = _optional_list(d, "metadata_extensions")
+        # metadata_dublincore = _optional_list(d, "metadata_dublincore")
+        # metadata_extensions = _optional_list(d, "metadata_extensions")
+        metadata_dublincore = d.get("metadata_dublincore") if d is not None else None
+        metadata_extensions = d.get("metadata_extensions") if d is not None else None
         return cls(
             metadata_dublincore=metadata_dublincore
             if metadata_dublincore is not None
@@ -174,6 +179,7 @@ class ResourceParams:
             exclude_heads_contains=_as_list(d.get("exclude_heads_contains")),
             fetch_document=bool(d.get("fetch_document", True)),
             fetch_navigation=bool(d.get("fetch_navigation", True)),
+            fetch_linked_parents=bool(d.get("fetch_linked_parents", True)),
             fragment_mode=str(d.get("fragment_mode", "auto")),
             fragment_xpath=d.get("fragment_xpath"),
             title_xpath=str(d.get("title_xpath", "./tei:head")),
@@ -188,20 +194,8 @@ class FragmentsParams:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "FragmentsParams":
-        d = d or {}
-        if d.get("keep_metadata"):
-            warnings.warn(
-                "'keep_metadata' is deprecated. Use 'metadata_dublincore' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        legacy_dc, _ = _split_legacy_metadata_paths(_as_list(d.get("keep_metadata")))
-        metadata_dublincore = _optional_list(d, "metadata_dublincore")
-        return cls(
-            metadata_dublincore=metadata_dublincore
-            if metadata_dublincore is not None
-            else legacy_dc or None,
-        )
+        metadata_dublincore = d.get("metadata_dublincore") if d is not None else None
+        return cls(metadata_dublincore=metadata_dublincore)
 
 
 @dataclass(slots=True)

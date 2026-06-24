@@ -451,16 +451,11 @@ class ThunderDots:
             for item in self.results().get("resource_results", [])
         ]
 
-    def to_elastic_documents(
-        self, *, include_fragments: bool = True, include_raw: bool = False
-    ) -> list[dict[str, Any]]:
+    def to_elastic_documents(self, *, include_fragments: bool = True) -> list[dict[str, Any]]:
         """Convert the resource results into a list of dictionaries formatted as ElasticSearch documents, with options to include fragments and raw metadata. Each notice is transformed into a format suitable for indexing in ElasticSearch, with fields such as "id", "title, "linked_parents", "metadata", and optionally "fragments" and "raw_metadata" based on the parameters provided.
 
         :param include_fragments: Whether to include the "fragments" field in the output documents (default: True).
         :type include_fragments: bool
-        :param include_raw: Whether to include the "raw_metadata" field in the output documents
-                            (default: False).
-        :type include_raw: bool
         :return: A list of dictionaries, each representing an ElasticSearch document for a notice,
         with fields formatted according to the DotsNotice.to_elastic_document method and the specified parameters.
         :rtype: list[dict[str, Any]]
@@ -468,7 +463,6 @@ class ThunderDots:
         return [
             notice.to_elastic_document(
                 include_fragments=include_fragments,
-                include_raw=include_raw,
             )
             for notice in self.notices()
         ]
@@ -476,29 +470,29 @@ class ThunderDots:
     def to_elastic_actions(
         self,
         *,
-        index: str,
         include_fragments: bool = True,
-        include_raw: bool = False,
+        index: str,
     ) -> list[dict[str, Any]]:
-        """Convert the resource results into a list of dictionaries formatted as ElasticSearch bulk API actions, with options to include fragments and raw metadata. Each notice is transformed into a format suitable for bulk indexing in ElasticSearch, with an action dictionary containing the index name and document ID, followed by the document itself formatted according to the DotsNotice.to_elastic_action method and the specified parameters.
+        """Convert the resource results into a list of dictionaries formatted as ElasticSearch bulk API actions,
+        with options to include fragments and raw metadata.
+        Each notice is transformed into a format suitable for bulk
+        indexing in ElasticSearch, with an action dictionary
+        containing the index name and document ID,
+        followed by the document itself formatted according
+        to the DotsNotice.to_elastic_action method and
+        the specified parameters.
 
-                :param index: The name of the ElasticSearch index to use in the bulk actions.
-                :type index: str
-                :param include_fragments: Whether to include the "fragments" field in the output
-                                    documents (default: True).
-                :type include_fragments: bool
-                :param include_raw: Whether to include the "raw_metadata" field in the output documents
-                                    (default: False).
-                :type include_raw: bool
-                :return: A list of dictionaries, each representing an ElasticSearch bulk API action for a
-        notice, with the appropriate index and document ID, and the document formatted according to the DotsNotice.to_elastic_action method and the specified parameters.
-                :rtype: list[dict[str, Any]]
+        :param index: The name of the ElasticSearch index to use in the bulk actions.
+        :type index: str
+        :param include_fragments: Whether to include the "fragments" field in the output actions (default: True).
+        :type include_fragments: bool
+        :return: A list of dictionaries, each representing an ElasticSearch bulk API action for a
+        :rtype: list[dict[str, Any]]
         """
         return [
             notice.to_elastic_action(
                 index=index,
                 include_fragments=include_fragments,
-                include_raw=include_raw,
             )
             for notice in self.notices()
         ]

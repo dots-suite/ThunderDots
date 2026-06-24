@@ -159,7 +159,6 @@ class DotsNotice:
         self,
         *,
         include_fragments: bool = True,
-        include_raw: bool = False,
     ) -> dict[str, Any]:
         payload = {
             "id": self.id,
@@ -183,9 +182,6 @@ class DotsNotice:
         if include_fragments:
             payload["fragments"] = self.fragments
 
-        if include_raw:
-            payload["raw"] = self.raw
-
         return payload
 
     def to_elastic_action(
@@ -193,7 +189,6 @@ class DotsNotice:
         *,
         index: str,
         include_fragments: bool = True,
-        include_raw: bool = False,
     ) -> dict[str, Any]:
         return {
             "_op_type": "index",
@@ -201,7 +196,6 @@ class DotsNotice:
             "_id": self.id,
             "_source": self.to_elastic_document(
                 include_fragments=include_fragments,
-                include_raw=include_raw,
             ),
         }
 
