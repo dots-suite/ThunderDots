@@ -356,6 +356,47 @@ class DotsNotice:
 
         return payload
 
+    def to_row(
+        self,
+        *,
+        include_text: bool = True,
+        include_fragments: bool = False,
+    ) -> dict[str, Any]:
+        """Return a flat dictionary representation of this notice, suitable for tabular output.
+
+        Core fields are always present: ``id``, ``type``, ``title``, ``linked_parents``,
+        ``fragments_count``. Dublin Core metadata is flattened under ``dublincore.<key>``
+        keys; extensions under ``extensions.<key>`` keys.
+
+        :param include_text: Include the ``text`` column (concatenated fragment content).
+        :type include_text: bool
+        :param include_fragments: Include the ``fragments`` column (raw list of fragment dicts).
+        :type include_fragments: bool
+        :return: A flat dictionary with one entry per column.
+        :rtype: dict[str, Any]
+        """
+        row: dict[str, Any] = {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "linked_parents": self.linked_parents,
+            "fragments_count": len(self.fragments),
+        }
+
+        if include_text:
+            row["text"] = self.full_text
+
+        for key, value in flatten_dict(self.dublincore).items():
+            row[f"dublincore.{key}"] = value
+
+        for key, value in flatten_dict(self.extensions).items():
+            row[f"extensions.{key}"] = value
+
+        if include_fragments:
+            row["fragments"] = self.fragments
+
+        return row
+
     def __getattr__(self, name: str) -> Any:
         """
         Permet notice.creator, notice.coverage, notice.issued, etc.

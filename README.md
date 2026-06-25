@@ -47,6 +47,7 @@ ThunderDots can:
 - preserve or filter Dublin Core and extension metadata;
 - enrich temporal metadata such as dates and coverage ranges;
 - validate generated outputs with JSON Schema;
+- transform DTS resources into Pandas/Polars DataFrames;
 - export records to indexing pipelines such as Elasticsearch or Qdrant-compatible formats;
 - cache fetched corpora as JSON and CSV;
 - run synchronous or asynchronous workflows.

@@ -521,6 +521,111 @@ class ThunderDots:
             for notice in self.notices()
         ]
 
+    def to_records(
+        self,
+        *,
+        column_map: dict[str, str] | None = None,
+        include_text: bool = True,
+        include_fragments: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Return a list of flat dictionaries, one per resource notice, ready for tabular use.
+
+        When *column_map* is ``None`` every column is included using its default name.
+        When *column_map* is provided only the listed columns are included, renamed to
+        their mapped values.  Keys follow the same naming scheme as
+        :meth:`DotsNotice.to_row` (e.g. ``"dublincore.creator"``, ``"extensions.publisher"``).
+
+        :param column_map: Optional mapping of ``{default_column_name: desired_name}``.
+            If given, only columns present in the map are returned.
+        :type column_map: dict[str, str] | None
+        :param include_text: Include the ``text`` column.
+        :type include_text: bool
+        :param include_fragments: Include the ``fragments`` column.
+        :type include_fragments: bool
+        :return: List of flat row dictionaries.
+        :rtype: list[dict[str, Any]]
+        """
+        rows = [
+            notice.to_row(include_text=include_text, include_fragments=include_fragments)
+            for notice in self.notices()
+        ]
+
+        if not column_map:
+            return rows
+
+        return [
+            {column_map[key]: row[key] for key in column_map if key in row}
+            for row in rows
+        ]
+
+    def to_dataframe(
+        self,
+        *,
+        backend: str = "pandas",
+        column_map: dict[str, str] | None = None,
+        include_text: bool = True,
+        include_fragments: bool = False,
+    ) -> Any:
+        """Return a Pandas or Polars DataFrame of the fetched resources.
+
+        Columns follow the flat schema from :meth:`to_records`.  Use *column_map* to
+        both select and rename columns in one step.
+
+        Example::
+
+            df = client.to_dataframe(
+                backend="polars",
+                column_map={
+                    "id": "resource_id",
+                    "dublincore.creator": "author",
+                    "dublincore.date": "year",
+                    "text": "full_text",
+                },
+            )
+
+        :param backend: ``"pandas"`` or ``"polars"``.  The corresponding library must be
+            installed; a clear :exc:`ImportError` is raised otherwise.
+        :type backend: str
+        :param column_map: Optional mapping of ``{default_column_name: desired_name}``.
+            If given, only columns present in the map are returned.
+        :type column_map: dict[str, str] | None
+        :param include_text: Include the ``text`` column.
+        :type include_text: bool
+        :param include_fragments: Include the ``fragments`` column.
+        :type include_fragments: bool
+        :return: A DataFrame instance from the requested backend.
+        :rtype: pandas.DataFrame | polars.DataFrame
+        :raises ValueError: If *backend* is not ``"pandas"`` or ``"polars"``.
+        :raises ImportError: If the requested backend library is not installed.
+        """
+        records = self.to_records(
+            column_map=column_map,
+            include_text=include_text,
+            include_fragments=include_fragments,
+        )
+
+        if backend == "pandas":
+            try:
+                import pandas as pd
+            except ImportError as exc:
+                raise ImportError(
+                    "pandas is required for backend='pandas'. "
+                    "Install it with: uv install pandas or pip install pandas"
+                ) from exc
+            return pd.DataFrame(records)
+
+        if backend == "polars":
+            try:
+                import polars as pl
+            except ImportError as exc:
+                raise ImportError(
+                    "polars is required for backend='polars'. "
+                    "Install it with: uv install polars or pip install polars"
+                ) from exc
+            return pl.from_dicts(records) if records else pl.DataFrame()
+
+        raise ValueError(f"Unknown backend '{backend}'. Choose 'pandas' or 'polars'.")
+
     def to_qdrant_points(
         self,
         *,
