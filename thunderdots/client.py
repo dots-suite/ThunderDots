@@ -553,10 +553,7 @@ class ThunderDots:
         if not column_map:
             return rows
 
-        return [
-            {column_map[key]: row[key] for key in column_map if key in row}
-            for row in rows
-        ]
+        return [{column_map[key]: row[key] for key in column_map if key in row} for row in rows]
 
     def to_dataframe(
         self,
