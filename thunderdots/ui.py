@@ -13,26 +13,30 @@ from typing import Optional
 from rich.console import Console
 from rich.progress import (
     BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
+from rich.table import Column
 from rich.theme import Theme
 
 theme = Theme(
     {
-        "td": "bold magenta",
-        "ok": "green",
+        "td": "bold cyan",
+        "ok": "bold green",
         "logo": "bold cyan",
+        "step": "bold magenta",
         "warn": "yellow",
-        "err": "red",
+        "err": "bold red",
         "dim": "dim",
     }
 )
 
 console = Console(theme=theme)
+
+_LOGO = "[logo]⚡ ThunderDots[/logo]"
 
 
 @dataclass
@@ -55,15 +59,26 @@ class UI:
         if not self.enabled:
             return self
 
+        console.print()
+        console.print(f"  {_LOGO}", highlight=False)
+        console.print("  [dim]" + "─" * 28 + "[/dim]")
+        console.print()
+
         self.progress = Progress(
-            SpinnerColumn(style="logo"),
-            TextColumn("[logo]⚡ ThunderDots[/logo] [td]{task.description}[/td]"),
-            BarColumn(),
-            TextColumn("[dim]{task.completed}/{task.total}[/dim]"),
+            TextColumn("  "),
+            SpinnerColumn(spinner_name="dots", style="cyan"),
+            TextColumn("{task.description}", table_column=Column(min_width=36)),
+            BarColumn(
+                bar_width=22,
+                style="dim",
+                complete_style="cyan",
+                finished_style="green",
+            ),
+            MofNCompleteColumn(),
+            TextColumn("[dim] · [/dim]"),
             TimeElapsedColumn(),
-            TimeRemainingColumn(),
             console=console,
-            transient=True,
+            transient=False,
             disable=not console.is_terminal,
         )
         self.progress.__enter__()
@@ -75,11 +90,11 @@ class UI:
             self.progress.__exit__(exc_type, exc, tb)
 
     async def __aenter__(self):
-        """Asynchronous context manager entry method, simply calls the synchronous __enter__ method to initialize the Progress instance if UI is enabled, allowing for use in an async with statement."""
+        """Asynchronous context manager entry point — calls __enter__."""
         return self.__enter__()
 
     async def __aexit__(self, exc_type, exc, tb):
-        """Asynchronous context manager exit method, simply calls the synchronous __exit__ method to clean up the Progress instance if it was initialized, ensuring that any progress bars are properly finalized and resources are released when exiting an async with statement."""
+        """Asynchronous context manager exit point — calls __exit__."""
         return self.__exit__(exc_type, exc, tb)
 
     def debug(self, msg: str):
@@ -100,62 +115,76 @@ class UI:
             console.print(msg, style=style)
 
     def start_walk(self):
-        """Start the progress bar for walking collections, initializing a task with the description "Walk collections" and a total of 1 to represent the overall progress of the collection walking phase."""
+        """Start an indeterminate progress bar for the collection-walk phase."""
         if self.progress:
-            self.task_walk = self.progress.add_task("Walk collections", total=1)
+            self.task_walk = self.progress.add_task(
+                "  [step]Walk[/step]  [dim]starting…[/dim]",
+                total=None,
+            )
 
     def update_collections(self, walked: int, collections: int, resources: int, http_errors: int):
-        """Update the progress bar for walking collections with the current counts of walked collections, total collections, resources found, and HTTP errors encountered, updating the description to reflect these counts and keeping the total at 1 to represent overall progress.
+        """Update the walk progress bar with current discovery counts.
 
-        :param walked: Number of collections walked so far
-        :type walked: int
-        :param collections: Total number of collections found so far
-        :type collections: int
-        :param resources: Total number of resources found so far
-        :type resources: int
-        :param http_errors: Total number of HTTP errors encountered so far
-        :type http_errors: int
-        :returns: None (updates the progress bar if available)
+        :param walked: Number of DTS objects walked so far.
+        :param collections: Collections found so far.
+        :param resources: Resources discovered so far.
+        :param http_errors: HTTP errors encountered so far.
         """
         if not self.progress or self.task_walk is None:
             return
 
+        err_part = f"  [err]{http_errors} err[/err]" if http_errors else ""
         desc = (
-            f"Walk collections  "
-            f"[dim]walked={walked}  collections={collections}  resources={resources}  "
-            f"errors={http_errors}[/dim]"
+            f"  [step]Walk[/step]  "
+            f"[dim]{walked} walked · "
+            f"{collections} col · "
+            f"{resources} res[/dim]"
+            f"{err_part}"
         )
-        self.progress.update(self.task_walk, description=desc, completed=0, total=1)
+        self.progress.update(self.task_walk, description=desc)
 
     def finish_walk(self):
-        """Finish the progress bar for walking collections by marking it as completed, setting the completed value to 1 to indicate that the collection walking phase is complete."""
+        """Mark the walk phase as complete (switches bar to determinate green)."""
         if self.progress and self.task_walk is not None:
-            self.progress.update(self.task_walk, completed=1)
+            self.progress.update(self.task_walk, total=1, completed=1)
 
     def start_resources(self, total: int):
-        """Start the progress bar for fetching resources, initializing a task with the description "Fetch resources" and the specified total number of resources to represent the overall progress of the resource fetching phase."""
+        """Start a determinate progress bar for the resource-fetch phase."""
         if self.progress:
-            self.task_res = self.progress.add_task("Fetch resources", total=total)
+            self.task_res = self.progress.add_task(
+                "  [step]Fetch[/step]  [dim]starting…[/dim]",
+                total=total,
+            )
 
     def update_resources(self, done: int, total: int, http_errors: int):
-        """Update the progress bar for fetching resources with the current count of done resources, total resources, and HTTP errors encountered, updating the description to reflect these counts and keeping the total at the specified value to represent overall progress."""
+        """Update the fetch progress bar with current completion state."""
         if not self.progress or self.task_res is None:
             return
-        desc = f"Fetch resources  [dim]errors={http_errors}[/dim]"
+        err_part = f"  [err]{http_errors} err[/err]" if http_errors else ""
+        desc = f"  [step]Fetch[/step]{err_part}"
         self.progress.update(self.task_res, description=desc, completed=done, total=total)
 
     def advance_resources(self, n: int = 1):
-        """Advance the progress bar for fetching resources by a specified number of completed resources, incrementing the completed value by n to reflect progress in the resource fetching phase."""
+        """Advance the fetch progress bar by n steps."""
         if self.progress and self.task_res is not None:
             self.progress.advance(self.task_res, n)
 
     def finalize(self, stats: dict):
-        """Finalize the UI output by printing a summary message with the total elapsed time and HTTP errors encountered, only if UI is enabled."""
+        """Print the final summary line after the progress bar has closed."""
         if not self.enabled:
             return
+
+        elapsed = stats.get("elapsed_seconds", 0)
+        errors = stats.get("http_errors", 0)
+        requests = stats.get("requests_total", 0)
+
+        if errors:
+            status = f"[err]✘  {errors} error{'s' if errors > 1 else ''}[/err]"
+        else:
+            status = "[ok]✔  Done[/ok]"
+
+        console.print()
         console.print(
-            "[logo]⚡ ThunderDots[/logo] "
-            f"[ok]✔ Done[/ok]  "
-            f"elapsed={stats.get('elapsed_seconds', 0):.2f}s  "
-            f"http_errors={stats.get('http_errors', 0)}",
+            f"  {status}  [dim]{elapsed:.2f}s · {requests} req[/dim]",
         )
+        console.print()

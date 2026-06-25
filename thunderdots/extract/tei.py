@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import unicodedata
 import hashlib
-from copy import deepcopy
 from lxml import etree
 import warnings
 
@@ -104,14 +103,29 @@ def _text_content_without_local_heads(
     :return: Normalized text content of the node with local heads removed
     :rtype: str
     """
-    node_copy = deepcopy(node)
+    heads_to_skip = set(node.xpath(head_xpath, namespaces=NS))
+    if not heads_to_skip:
+        return _normalize_ws("".join(node.itertext()))
 
-    for head in node_copy.xpath(head_xpath, namespaces=NS):
-        parent = head.getparent()
-        if parent is not None:
-            parent.remove(head)
+    parts: list[str] = []
+    skip_depth = 0
 
-    return _normalize_ws("".join(node_copy.itertext()))
+    for event, el in etree.iterwalk(node, events=("start", "end")):
+        if event == "start":
+            if skip_depth > 0:
+                skip_depth += 1
+            elif el in heads_to_skip:
+                skip_depth = 1
+            else:
+                if el.text:
+                    parts.append(el.text)
+        else:
+            if skip_depth > 0:
+                skip_depth -= 1
+            elif el is not node and el.tail:
+                parts.append(el.tail)
+
+    return _normalize_ws("".join(parts))
 
 
 def _nearest_ancestor_head(node: etree._Element) -> str | None:
@@ -176,6 +190,7 @@ def extract_fragments_by_xpath(
     root = _parse_tei_xml(tei_xml)
     nodes = root.xpath(fragment_xpath, namespaces=NS)
 
+    normalized_excludes = _normalize_patterns(exclude_heads_contains)
     fragments: list[dict] = []
 
     for index, node in enumerate(nodes):
@@ -186,7 +201,7 @@ def extract_fragments_by_xpath(
         if head is None:
             head = _nearest_ancestor_head(node)
 
-        if _should_exclude_head(head, exclude_heads_contains):
+        if _should_exclude_head(head, normalized_excludes):
             continue
 
         if remove_fragment_heads:
@@ -384,19 +399,27 @@ def _text_content_without_descendant_fragments(
     :return: Normalized text content of the node with descendant fragments removed
     :rtype: str
     """
-    node_copy = deepcopy(node)
+    parts: list[str] = []
+    skip_depth = 0
 
-    for el in list(node_copy.iter()):
-        if el is node_copy:
-            continue
+    for event, el in etree.iterwalk(node, events=("start", "end")):
+        if event == "start":
+            if skip_depth > 0:
+                skip_depth += 1
+            else:
+                xid = el.get(XML_ID)
+                if xid and xid != current_xml_id and xid in fragment_ids:
+                    skip_depth = 1
+                else:
+                    if el.text:
+                        parts.append(el.text)
+        else:
+            if skip_depth > 0:
+                skip_depth -= 1
+            elif el is not node and el.tail:
+                parts.append(el.tail)
 
-        xid = el.get(XML_ID)
-        if xid and xid != current_xml_id and xid in fragment_ids:
-            parent = el.getparent()
-            if parent is not None:
-                parent.remove(el)
-
-    return _normalize_ws("".join(node_copy.itertext()))
+    return _normalize_ws("".join(parts))
 
 
 def _index_xml_ids_iter(root: etree._Element) -> dict[str, etree._Element]:
@@ -488,27 +511,33 @@ def _normalize_match_text(text: str | None) -> str:
     return "".join(ch for ch in text if not unicodedata.combining(ch))
 
 
-def _should_exclude_head(head: str | None, exclude_heads_contains: list[str] | None) -> bool:
-    """Determine whether a head should be excluded based on whether it contains any of the specified substrings, using normalized text for matching.
+def _normalize_patterns(exclude_heads_contains: list[str] | None) -> list[str]:
+    """Pre-normalize exclusion patterns once so per-fragment matching is a simple `in` check.
+
+    :param exclude_heads_contains: Raw exclusion patterns.
+    :type exclude_heads_contains: list[str] | None
+    :return: Normalized, non-empty patterns.
+    :rtype: list[str]
+    """
+    return [p for p in (_normalize_match_text(e) for e in (exclude_heads_contains or [])) if p]
+
+
+def _should_exclude_head(head: str | None, normalized_patterns: list[str]) -> bool:
+    """Determine whether a head should be excluded using pre-normalized patterns.
 
     :param head: The head text to check for exclusion.
     :type head: str | None
-    :param exclude_heads_contains: List of substrings; if any is contained in the head
-    (case-insensitive), the head will be excluded.
-    :type exclude_heads_contains: list[str] | None
+    :param normalized_patterns: Already-normalized exclusion patterns (see _normalize_patterns).
+    :type normalized_patterns: list[str]
     :return: True if the head should be excluded, False otherwise.
     :rtype: bool
     """
+    if not normalized_patterns:
+        return False
     normalized_head = _normalize_match_text(head)
     if not normalized_head:
         return False
-
-    for pattern in exclude_heads_contains or []:
-        normalized_pattern = _normalize_match_text(pattern)
-        if normalized_pattern and normalized_pattern in normalized_head:
-            return True
-
-    return False
+    return any(p in normalized_head for p in normalized_patterns)
 
 
 def extract_document_text_fast(
@@ -604,6 +633,7 @@ def extract_fragments(
     nav_idx: dict[str, dict] = {}
     fragment_ids: set[str] = set()
 
+    normalized_excludes = _normalize_patterns(exclude_heads_contains)
     metadata_filter_frags = fragment_metadata_dublincore_params
     for m in members:
         # print("Processing member:", m)
@@ -634,7 +664,7 @@ def extract_fragments(
             continue
 
         head = _nav_title(m)
-        if _should_exclude_head(head, exclude_heads_contains):
+        if _should_exclude_head(head, normalized_excludes):
             continue
 
         content = _text_content_without_descendant_fragments(

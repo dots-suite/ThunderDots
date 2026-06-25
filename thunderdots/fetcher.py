@@ -16,11 +16,7 @@ import httpx
 
 
 def _http2_available() -> bool:
-    """Return True when httpx can enable HTTP/2 support in the current environment."""
-    try:
-        import h2  # noqa: F401
-    except ImportError:
-        return False
+    """Return True — h2 is a required dependency so HTTP/2 is always available."""
     return True
 
 

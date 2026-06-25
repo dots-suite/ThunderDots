@@ -407,42 +407,44 @@ class ThunderDots:
 
         fetcher: Fetcher = self._make_fetcher()
 
-        async with ui:
-            try:
-                ui.start_walk()
-
-                collections, resources = await walk_collections(
-                    fetcher, self.config, self._stats, ui=ui
-                )
-
-                ui.start_resources(total=len(resources))
-
-                resource_results = await fetch_resources(
-                    fetcher, self.config, resources, self._stats, ui=ui
-                )
-
-                self._results = build_output(
-                    collections,
-                    resource_results,
-                    self._stats,
-                    _package_version(),
-                    collection_metadata_dublincore=self.config.collection_params.metadata_dublincore,
-                    collection_metadata_extensions=self.config.collection_params.metadata_extensions,
-                )
-
-                if self.config.validate:
-                    self._validate_results_if_needed()
-                self._write_results_if_needed()
-                self._write_cache_csv_if_needed()
-
-            finally:
+        try:
+            async with ui:
                 try:
-                    await fetcher.aclose()
-                except Exception:
-                    pass
+                    ui.start_walk()
 
-                self._stats.stop()
-                ui.finalize(self._stats.to_dict())
+                    collections, resources = await walk_collections(
+                        fetcher, self.config, self._stats, ui=ui
+                    )
+
+                    ui.start_resources(total=len(resources))
+
+                    resource_results = await fetch_resources(
+                        fetcher, self.config, resources, self._stats, ui=ui
+                    )
+
+                    self._results = build_output(
+                        collections,
+                        resource_results,
+                        self._stats,
+                        _package_version(),
+                        collection_metadata_dublincore=self.config.collection_params.metadata_dublincore,
+                        collection_metadata_extensions=self.config.collection_params.metadata_extensions,
+                    )
+
+                    if self.config.validate:
+                        self._validate_results_if_needed()
+                    self._write_results_if_needed()
+                    self._write_cache_csv_if_needed()
+
+                finally:
+                    try:
+                        await fetcher.aclose()
+                    except Exception:
+                        pass
+
+        finally:
+            self._stats.stop()
+            ui.finalize(self._stats.to_dict())
 
     def notices(self) -> list[DotsNotice]:
         """Convert the resource results into a list of DotsNotice objects, which are ORM representations of the notices that can be used for further processing or output formatting."""

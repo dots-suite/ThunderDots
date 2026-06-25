@@ -126,12 +126,19 @@ async def walk_collections(
 
                 object_id, traversal_parents = queue_item
 
-                data = await _fetch_collection(
-                    fetcher,
-                    object_id,
-                    stats,
-                    ui=ui,
+                need_parents = (
+                    config.resource_params.fetch_linked_parents
+                    or config.collection_params.fetch_linked_parents
                 )
+
+                if need_parents:
+                    data, linked_parents_prefetch = await asyncio.gather(
+                        _fetch_collection(fetcher, object_id, stats, ui=ui),
+                        parents_resolver.resolve(object_id, fallback=traversal_parents),
+                    )
+                else:
+                    data = await _fetch_collection(fetcher, object_id, stats, ui=ui)
+                    linked_parents_prefetch = list(traversal_parents)
 
                 if data is None:
                     continue
@@ -145,10 +152,13 @@ async def walk_collections(
                     fetch_parents = bool(config.collection_params.fetch_linked_parents)
 
                 if fetch_parents:
-                    linked_parents = await parents_resolver.resolve(
-                        current_id,
-                        fallback=traversal_parents,
-                    )
+                    if current_id and current_id != object_id:
+                        linked_parents = await parents_resolver.resolve(
+                            current_id,
+                            fallback=traversal_parents,
+                        )
+                    else:
+                        linked_parents = linked_parents_prefetch
                 else:
                     linked_parents = list(traversal_parents)
 

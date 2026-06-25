@@ -61,7 +61,7 @@ uv run ruff check
 
 # 4. Run tests 
 
-uv run pytest  
+RUN_NETWORK_TESTS=1 uv run python -m pytest
 
 # 5. Build the documentation 
 
