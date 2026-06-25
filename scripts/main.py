@@ -24,7 +24,7 @@ if __name__ == "__main__":
             "metadata_extensions": ["publisher"],
             "add_head_to_content": False,
             "include_breadcrumb": True,
-            #"fetch_linked_parents": True,
+            # "fetch_linked_parents": True,
         },
         fragment_params={
             "metadata_dublincore": None,
