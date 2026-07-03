@@ -150,7 +150,7 @@ If you use ThunderDots in academic work, please cite it as:
   year         = {2026},
   publisher    = {GitHub},
   institution  = {{École nationale des chartes}},
-  url          = {https://github.com/chartes/thunderdots},
+  url          = {https://github.com/dots-suite/thunderdots},
   note         = {Python client for Distributed Text Services (DTS) via DoTS}
 }
 ```
