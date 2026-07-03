@@ -14,7 +14,7 @@ authors:
     given-names: Lucas
     orcid: "https://orcid.org/0000-0002-9189-258X"
     affiliation: "École nationale des chartes – PSL"
-repository-code: "https://github.com/chartes/thunderdots"
+repository-code: "https://github.com/dots-suite/thunderdots"
 url: "https://github.com/chartes/thunderdots"
 license: MIT
 keywords:
