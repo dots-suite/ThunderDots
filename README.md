@@ -68,6 +68,20 @@ uv add thunderdots
 pip install thunderdots
 ```
 
+### Notebook (Jupyter) support
+
+`notebook` is **not** installed by default. Since Jupyter is only needed to run
+the documentation notebooks, it is shipped as an optional extra. Install it
+with:
+
+```bash
+# uv
+uv add thunderdots[docs]
+
+# pip
+pip install thunderdots[docs]
+```
+
 ### For development
 
 ```bash
