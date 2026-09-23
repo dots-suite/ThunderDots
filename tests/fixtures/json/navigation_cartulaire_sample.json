@@ -1,0 +1,86 @@
+{
+  "@id": "CART_SAMPLE",
+  "@type": "Resource",
+  "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+  "member": [
+    {
+      "identifier": "CART_SAMPLE_front",
+      "@type": "CitableUnit",
+      "level": 1,
+      "parent": null,
+      "citeType": "paratexte",
+      "dublinCore": {"title": "Cartulaire de test (1157-1185)"},
+      "extensions": {"name": "Cartulaire de test (1157-1185)"}
+    },
+    {
+      "identifier": "CART_SAMPLE_notice",
+      "@type": "CitableUnit",
+      "level": 2,
+      "parent": "CART_SAMPLE_front",
+      "citeType": "partie",
+      "dublinCore": {"title": "Notice"},
+      "extensions": {"name": "Notice"}
+    },
+    {
+      "identifier": "CART_SAMPLE_group",
+      "@type": "CitableUnit",
+      "level": 1,
+      "parent": null,
+      "citeType": "partie",
+      "dublinCore": {"title": "Actes"},
+      "extensions": {"name": "Actes"}
+    },
+    {
+      "identifier": "CART_SAMPLE_0001",
+      "@type": "CitableUnit",
+      "level": 2,
+      "parent": "CART_SAMPLE_group",
+      "citeType": "acte",
+      "dublinCore": {
+        "title": "Donation de Louis VII.",
+        "language": "lat",
+        "type": "act",
+        "bibliographicCitation": "Cartulaire de test, p. 1."
+      },
+      "extensions": {
+        "name": "Donation de Louis VII.",
+        "inLanguage": "lat",
+        "creditText": "Cartulaire de test, p. 1."
+      }
+    },
+    {
+      "identifier": "CART_SAMPLE_0002",
+      "@type": "CitableUnit",
+      "level": 2,
+      "parent": "CART_SAMPLE_group",
+      "citeType": "acte",
+      "dublinCore": {
+        "title": "Sentence arbitrale.",
+        "language": "lat",
+        "type": "act",
+        "date": "1173-05-02"
+      },
+      "extensions": {
+        "name": "Sentence arbitrale.",
+        "inLanguage": "lat"
+      }
+    },
+    {
+      "identifier": "CART_SAMPLE_0003",
+      "@type": "CitableUnit",
+      "level": 2,
+      "parent": "CART_SAMPLE_group",
+      "citeType": "acte",
+      "dublinCore": {
+        "title": "Confirmation épiscopale.",
+        "language": "lat",
+        "type": "act"
+      },
+      "extensions": {
+        "name": "Confirmation épiscopale.",
+        "inLanguage": "lat",
+        "temporalCoverage": "1180/1185"
+      }
+    }
+  ]
+}

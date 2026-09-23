@@ -1,0 +1,31 @@
+{
+  "@id": "CART_SAMPLE_COLL",
+  "@type": "Collection",
+  "title": "Cartulaires de test",
+  "totalItems": 1,
+  "dublincore": {"title": "Cartulaires de test"},
+  "member": [
+    {
+      "@id": "CART_SAMPLE",
+      "@type": "Resource",
+      "title": "Cartulaire de test",
+      "totalItems": 0,
+      "totalChildren": 0,
+      "totalParents": 1,
+      "document": "/api/dts/document?resource=CART_SAMPLE{?ref,start,end,tree,mediaType}",
+      "navigation": "/api/dts/navigation?resource=CART_SAMPLE{?ref,start,end,tree,down}",
+      "citationTrees": {"@type": "CitationTree", "maxCiteDepth": 2},
+      "mediaTypes": ["xml"],
+      "dublincore": {
+        "title": "Cartulaire de test",
+        "creator": "Éditeur de test",
+        "coverage": "1157/1185",
+        "date": 1894
+      },
+      "extensions": {
+        "temporalCoverage": "1157/1185",
+        "datePublished": "1894"
+      }
+    }
+  ]
+}

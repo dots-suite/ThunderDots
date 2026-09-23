@@ -87,6 +87,51 @@ def test_online_fetch_navigation_mode_for_encpos_1907() -> None:
 
 
 @pytest.mark.network
+def test_online_cartulaire_fragments_carry_metadata_and_temporal_index() -> None:
+    """Verify fragment-level metadata and TEI dates on a real cartulaire (dev endpoint)."""
+    td = ThunderDots(
+        endpoint_dts=ENDPOINT_DTS,
+        # HDPAR-HD is a Resource of the "cartulaires" collection (one 4 MB TEI, ~900 acts).
+        collection_params={"collection_id": "HDPAR-HD"},
+        resource_params={
+            "fragment_mode": "navigation",
+            "metadata_dublincore": ["title"],
+            "metadata_extensions": ["temporalCoverage"],
+            "add_head_to_content": False,
+        },
+        fragment_params={
+            "metadata_dublincore": ["title", "language"],
+            "metadata_extensions": ["name"],
+            "temporal_xpath": ".//tei:docDate/tei:date",
+        },
+        use_cache=False,
+        verbose=False,
+        concurrency=4,
+        request_timeout=60.0,
+        retries=2,
+    )
+
+    td.fetch()
+
+    resources = td.results()["resource_results"]
+    assert len(resources) == 1
+    fragments = {fragment["id"]: fragment for fragment in resources[0]["fragments"]}
+
+    first_act = fragments["HDPAR-HD_0001"]
+    assert first_act["metadata"]["dublincore"] == {"title": "1 (1157)", "language": "lat"}
+    assert first_act["metadata"]["extensions"] == {"name": "1 (1157)"}
+    assert first_act["metadata"]["tei"] == {"date": "1157"}
+    assert first_act["temporal"]["tei.date_start"] == 1157
+
+    # Container units carry no date of their own and inherit nothing from the resource.
+    assert fragments["HDPAR-HD_group"]["temporal"] == {}
+    assert fragments["HDPAR-HD_front"]["temporal"] == {}
+
+    dated = [fragment for fragment in fragments.values() if fragment["temporal"]]
+    assert len(dated) > 800
+
+
+@pytest.mark.network
 @pytest.mark.parametrize(
     ("object_id", "expected_parent"),
     [

@@ -87,6 +87,123 @@ class Agent:
 
 
 @dataclass(slots=True)
+class Fragment:
+    """Represents one text fragment of a resource, with its own metadata and temporal index.
+
+    ``metadata`` holds the fragment-level ``dublincore``, ``extensions`` and ``tei`` blocks
+    produced by the extractors. ``temporal`` is the stored per-fragment temporal index
+    (``None`` when it was not computed at fetch time).
+    """
+
+    id: str
+    content: str = ""
+    head: str | None = None
+    breadcrumb: str | None = None
+    level: int | str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    temporal: dict[str, Any] | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Fragment":
+        """Create a Fragment from a fragment dictionary of a resource result.
+
+        :param data: Fragment dictionary as produced by the TEI extractors.
+        :type data: dict[str, Any]
+        :return: A Fragment instance.
+        :rtype: Fragment
+        """
+        metadata = data.get("metadata")
+        temporal = data.get("temporal")
+        return cls(
+            id=str(data.get("id") or ""),
+            content=str(data.get("content") or ""),
+            head=data.get("head"),
+            breadcrumb=data.get("breadcrumb"),
+            level=data.get("level"),
+            metadata=dict(metadata) if isinstance(metadata, dict) else {},
+            temporal=dict(temporal) if isinstance(temporal, dict) else None,
+            raw=data,
+        )
+
+    @property
+    def dublincore(self) -> dict[str, Any]:
+        return self.metadata.get("dublincore") or {}
+
+    @property
+    def extensions(self) -> dict[str, Any]:
+        return self.metadata.get("extensions") or {}
+
+    @property
+    def temporal_index(self) -> dict[str, Any]:
+        """Temporal index of the fragment, derived from its own metadata only.
+
+        The stored ``temporal`` block is returned when present; otherwise it is computed
+        on the fly. An empty dictionary means the fragment carries no explicit date.
+
+        :return: Flattened temporal metadata with parsed year bounds.
+        :rtype: dict[str, Any]
+        """
+        if self.temporal is not None:
+            return self.temporal
+        return enrich_temporal_metadata(self.metadata)
+
+    def to_qdrant_payload(
+        self,
+        *,
+        notice: "DotsNotice | None" = None,
+        include_resource_temporal: bool = False,
+    ) -> dict[str, Any]:
+        """Build a Qdrant payload for this fragment.
+
+        The payload only carries the fragment's own metadata and temporal index. When
+        *include_resource_temporal* is True and a *notice* is given, the resource temporal
+        index is added under the distinct ``resource_temporal`` namespace (nested and as
+        sanitized ``resource_temporal__*`` keys), so that provenance stays explicit.
+
+        :param notice: Parent notice, used for ``record_id``, ``title`` and ``linked_parents``.
+        :type notice: DotsNotice | None
+        :param include_resource_temporal: Add the resource temporal index under
+            ``resource_temporal``.
+        :type include_resource_temporal: bool
+        :return: A Qdrant payload dictionary.
+        :rtype: dict[str, Any]
+        """
+        temporal = self.temporal_index
+        metadata_flat = flatten_dict({**self.metadata, "temporal": temporal})
+        safe_metadata = {sanitize_payload_key(key): value for key, value in metadata_flat.items()}
+
+        payload: dict[str, Any] = {
+            "id": self.id,
+            "fragment_id": self.id,
+            "record_id": notice.id if notice is not None else None,
+            "type": "Fragment",
+            "title": notice.title if notice is not None else None,
+            "head": self.head,
+            "breadcrumb": self.breadcrumb,
+            "level": self.level,
+            "text": self.content,
+            "linked_parents": list(notice.linked_parents) if notice is not None else [],
+            "metadata": self.metadata,
+            "temporal": temporal,
+            "metadata_flat": metadata_flat,
+            **safe_metadata,
+        }
+
+        if include_resource_temporal and notice is not None:
+            resource_temporal = notice.temporal_index
+            payload["resource_temporal"] = resource_temporal
+            payload.update(
+                {
+                    sanitize_payload_key(f"resource_temporal.{key}"): value
+                    for key, value in resource_temporal.items()
+                }
+            )
+
+        return payload
+
+
+@dataclass(slots=True)
 class DotsNotice:
     """Represents a notice in the Dots system, with fields for ID, type, title, Dublin Core metadata, extensions, fragments, linked parents, and raw data. Provides methods to convert to ElasticSearch and Qdrant payloads, as well as accessors for metadata and creator agents."""
 
@@ -255,6 +372,57 @@ class DotsNotice:
             point["vector"] = vector
 
         return point
+
+    def fragment_objects(self) -> list[Fragment]:
+        """Return the fragments of this notice as :class:`Fragment` objects.
+
+        :return: One Fragment per entry of ``fragments``.
+        :rtype: list[Fragment]
+        """
+        return [Fragment.from_dict(item) for item in self.fragments if isinstance(item, dict)]
+
+    def to_qdrant_fragment_points(
+        self,
+        *,
+        vectors: list[list[float] | dict[str, Any]] | None = None,
+        include_resource_temporal: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Build one Qdrant point per fragment of this notice.
+
+        Point identifiers are derived from ``"<notice id>::<fragment id>"`` so they stay
+        stable across runs. Fragments with empty content are skipped.
+
+        :param vectors: Optional vectors, one per non-empty fragment, in order.
+        :type vectors: list[list[float] | dict[str, Any]] | None
+        :param include_resource_temporal: Add the resource temporal index under the
+            ``resource_temporal`` namespace of each payload.
+        :type include_resource_temporal: bool
+        :return: A list of Qdrant point dictionaries.
+        :rtype: list[dict[str, Any]]
+        :raises ValueError: If the number of vectors does not match the number of fragments.
+        """
+        fragments = [fragment for fragment in self.fragment_objects() if fragment.content.strip()]
+
+        if vectors is not None and len(vectors) != len(fragments):
+            raise ValueError(
+                f"vectors length mismatch: got {len(vectors)} vectors for "
+                f"{len(fragments)} fragments of notice {self.id!r}"
+            )
+
+        points: list[dict[str, Any]] = []
+        for index, fragment in enumerate(fragments):
+            point: dict[str, Any] = {
+                "id": stable_int_id(f"{self.id}::{fragment.id}"),
+                "payload": fragment.to_qdrant_payload(
+                    notice=self,
+                    include_resource_temporal=include_resource_temporal,
+                ),
+            }
+            if vectors is not None:
+                point["vector"] = vectors[index]
+            points.append(point)
+
+        return points
 
     def dc(self, key: str, default: Any = None) -> Any:
         return get_path(self.dublincore, key) or default

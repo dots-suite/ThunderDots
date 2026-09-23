@@ -1,0 +1,59 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:id="CART_SAMPLE" xml:lang="fre">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title>Cartulaire de test</title>
+      </titleStmt>
+      <publicationStmt><publisher>École des chartes</publisher><date when="2026"/></publicationStmt>
+      <sourceDesc><p>Fixture inspired by the DoTS "cartulaires" collection.</p></sourceDesc>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <front xml:id="CART_SAMPLE_front">
+      <head>Cartulaire de test (1157-1185)</head>
+      <div type="preface" xml:id="CART_SAMPLE_notice">
+        <head>Notice</head>
+        <p>Présentation du cartulaire, sans date propre.</p>
+      </div>
+    </front>
+    <group xml:id="CART_SAMPLE_group">
+      <head>Actes</head>
+      <text xml:id="CART_SAMPLE_0001" n="1" subtype="article">
+        <front>
+          <docDate><date>1157</date></docDate>
+          <head>Donation de Louis VII.</head>
+          <argument><p>Donation par Louis VII d’une censive.</p></argument>
+        </front>
+        <body>
+          <div type="transcription" xml:lang="lat">
+            <p>In nomine sancte et individue Trinitatis. Ludovicus, Dei gratia Francorum rex.</p>
+          </div>
+        </body>
+      </text>
+      <text xml:id="CART_SAMPLE_0002" n="2" subtype="article">
+        <front>
+          <docDate><date when="1173-05-02"/></docDate>
+          <head>Sentence arbitrale.</head>
+          <argument><p>Sentence arbitrale de Guillaume, archevêque de Sens.</p></argument>
+        </front>
+        <body>
+          <div type="transcription" xml:lang="lat">
+            <p>Willelmus, Dei gratia Senonensis archiepiscopus, apostolice sedis legatus.</p>
+          </div>
+        </body>
+      </text>
+      <text xml:id="CART_SAMPLE_0003" n="3" subtype="article">
+        <front>
+          <docDate><date notBefore="1180" notAfter="1185"/></docDate>
+          <head>Confirmation épiscopale.</head>
+          <argument><p>Confirmation par l’évêque de Paris.</p></argument>
+        </front>
+        <body>
+          <div type="transcription" xml:lang="lat">
+            <p>Mauritius, Dei gratia Parisiensis episcopus, omnibus presentes litteras inspecturis.</p>
+          </div>
+        </body>
+      </text>
+    </group>
+  </text>
+</TEI>

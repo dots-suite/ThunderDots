@@ -116,15 +116,23 @@ resource_params = {
 
 `fragment_params` is converted internally to a `FragmentsParams` dataclass.
 
-```
+```python
 fragment_params = {
     "metadata_dublincore": ["title", "creator", "date"],
+    "metadata_extensions": ["name"],
+    "temporal_xpath": ".//tei:docDate/tei:date",
+    "temporal_index": "auto",
 }
 ```
 
-| Parameter |       Type | Default | Role |
-|---|-----------:|---:|---|
-| `metadata_dublincore` |`list[str]`  | `None` | Dublin Core fragment fields. `None` keeps all fields; `[]` keeps none. | 
+| Parameter | Type | Default | Role |
+|---|---:|---:|---|
+| `metadata_dublincore` | `list[str] \| None` | `None` | Dublin Core fields of the DTS navigation member kept under `fragment["metadata"]["dublincore"]`. `None` keeps all fields; `[]` keeps none. |
+| `metadata_extensions` | `list[str] \| None` | `None` | Extension fields of the navigation member kept under `fragment["metadata"]["extensions"]`. `None` keeps all fields; `[]` keeps none. |
+| `temporal_xpath` | `str \| None` | `None` | XPath evaluated relative to each fragment node in the TEI document. Matching dates (`@when`, `@notBefore`/`@notAfter`, `@from`/`@to` or text) are stored under `fragment["metadata"]["tei"]["date"]`. Dates located inside descendant fragments are ignored. |
+| `temporal_index` | `bool \| "auto"` | `"auto"` | Compute a per-fragment `temporal` index from the fragment's own metadata. `"auto"` enables it as soon as `fragment_params` is given with at least one metadata source (a filter set to `[]` keeps nothing). |
+
+Fragment metadata only comes from the navigation member and from `temporal_xpath`: resource-level metadata and dates are never copied into fragments. See [Metadata and validation](metadata-validation.md#fragment-level-metadata-and-temporal-index).
 
 
 ## Fragmentation modes

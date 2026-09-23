@@ -188,14 +188,96 @@ class ResourceParams:
         )
 
 
+_FRAGMENT_PARAM_KEYS = (
+    "metadata_dublincore",
+    "metadata_extensions",
+    "temporal_index",
+    "temporal_xpath",
+)
+
+
 @dataclass(slots=True)
 class FragmentsParams:
+    """Parameters controlling the metadata attached to each extracted fragment.
+
+    - ``metadata_dublincore`` / ``metadata_extensions``: Dublin Core and extension fields
+      to keep from the DTS navigation member describing the fragment. ``None`` keeps all
+      fields, ``[]`` keeps none (same semantics as ``ResourceParams``).
+    - ``temporal_xpath``: optional XPath evaluated relative to each fragment node in the
+      TEI document (e.g. ``".//tei:docDate/tei:date"``). Matching values are stored under
+      ``metadata.tei.date`` so they take part in the fragment temporal index.
+    - ``temporal_index``: ``True`` / ``False`` to force the computation of a per-fragment
+      ``temporal`` index, or ``"auto"`` (default) to enable it only when fragment metadata
+      has been explicitly requested. A fragment without explicit temporal metadata gets an
+      empty index: resource-level dates are never inherited.
+    - ``requested``: internal flag, ``True`` when the user explicitly passed fragment
+      parameters. Set by :meth:`from_dict`.
+    """
+
     metadata_dublincore: list[str] | None = None
+    metadata_extensions: list[str] | None = None
+    temporal_index: bool | str = "auto"
+    temporal_xpath: str | None = None
+    requested: bool = False
 
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "FragmentsParams":
-        metadata_dublincore = d.get("metadata_dublincore") if d is not None else None
-        return cls(metadata_dublincore=metadata_dublincore)
+        """Create a FragmentsParams instance from a dictionary.
+
+        :param d: Input dictionary. May contain ``metadata_dublincore``, ``metadata_extensions``,
+            ``temporal_index`` and ``temporal_xpath``.
+        :type d: dict[str, Any] | None
+        :return: A FragmentsParams instance.
+        :rtype: FragmentsParams
+        :raises ValueError: If ``temporal_index`` is neither a boolean nor ``"auto"``.
+        """
+        d = d or {}
+
+        temporal_index = d.get("temporal_index", "auto")
+        if isinstance(temporal_index, str):
+            temporal_index = temporal_index.strip().lower()
+            if temporal_index != "auto":
+                raise ValueError(
+                    "fragment_params.temporal_index must be True, False or 'auto', "
+                    f"got {d.get('temporal_index')!r}"
+                )
+        elif not isinstance(temporal_index, bool):
+            raise ValueError(
+                "fragment_params.temporal_index must be True, False or 'auto', "
+                f"got {temporal_index!r}"
+            )
+
+        temporal_xpath = d.get("temporal_xpath")
+        temporal_xpath = str(temporal_xpath).strip() or None if temporal_xpath else None
+
+        return cls(
+            metadata_dublincore=d.get("metadata_dublincore"),
+            metadata_extensions=d.get("metadata_extensions"),
+            temporal_index=temporal_index,
+            temporal_xpath=temporal_xpath,
+            requested=any(key in d for key in _FRAGMENT_PARAM_KEYS),
+        )
+
+    @property
+    def temporal_index_enabled(self) -> bool:
+        """Resolve ``temporal_index`` to a boolean.
+
+        ``"auto"`` enables the per-fragment temporal index when fragment parameters were
+        explicitly given and at least one metadata source is kept (a filter set to ``[]``
+        keeps nothing, and ``temporal_xpath`` counts as a source).
+
+        :return: True when fragments must carry a ``temporal`` index.
+        :rtype: bool
+        """
+        if isinstance(self.temporal_index, bool):
+            return self.temporal_index
+
+        if not self.requested:
+            return False
+
+        keeps_dublincore = self.metadata_dublincore is None or bool(self.metadata_dublincore)
+        keeps_extensions = self.metadata_extensions is None or bool(self.metadata_extensions)
+        return keeps_dublincore or keeps_extensions or bool(self.temporal_xpath)
 
 
 @dataclass(slots=True)

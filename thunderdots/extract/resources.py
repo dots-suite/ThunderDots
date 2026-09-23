@@ -17,7 +17,29 @@ from .tei import (
 )
 from ..config import ThunderDotsConfig
 from ..fetcher import Fetcher
+from ..normalize.dates import enrich_temporal_metadata
 from ..normalize.metadata import build_metadata
+
+
+def attach_fragment_temporal_index(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add a ``temporal`` index to each fragment, derived from its own metadata only.
+
+    The index is computed with :func:`enrich_temporal_metadata` on ``fragment["metadata"]``
+    (Dublin Core, extensions and TEI dates). A fragment without explicit temporal metadata
+    gets an empty dictionary: resource-level dates are never inherited, because they do
+    not necessarily apply to a given fragment.
+
+    :param fragments: Fragments produced by the TEI extractors (modified in place).
+    :type fragments: list[dict[str, Any]]
+    :return: The same list, for convenience.
+    :rtype: list[dict[str, Any]]
+    """
+    for fragment in fragments:
+        metadata = fragment.get("metadata")
+        fragment["temporal"] = (
+            enrich_temporal_metadata(metadata) if isinstance(metadata, dict) else {}
+        )
+    return fragments
 
 
 async def fetch_resources(
@@ -51,6 +73,9 @@ async def fetch_resources(
     exclude_heads_contains = list(config.resource_params.exclude_heads_contains or [])
 
     fragment_dublincore_metadata_params = config.fragment_params.metadata_dublincore
+    fragment_extensions_metadata_params = config.fragment_params.metadata_extensions
+    fragment_temporal_xpath = config.fragment_params.temporal_xpath
+    fragment_temporal_index = bool(config.fragment_params.temporal_index_enabled)
 
     fetch_document = bool(config.resource_params.fetch_document)
     fetch_navigation = bool(config.resource_params.fetch_navigation)
@@ -131,6 +156,8 @@ async def fetch_resources(
                             exclude_heads_contains=exclude_heads_contains,
                             include_breadcrumb=include_breadcrumb,
                             fragment_metadata_dublincore_params=fragment_dublincore_metadata_params,
+                            fragment_metadata_extensions_params=fragment_extensions_metadata_params,
+                            temporal_xpath=fragment_temporal_xpath,
                         )
 
                     # ------------------------------------------------------------
@@ -161,6 +188,7 @@ async def fetch_resources(
                             exclude_heads_contains=exclude_heads_contains,
                             include_breadcrumb=include_breadcrumb,
                             generated_id_prefix=generated_id_prefix,
+                            temporal_xpath=fragment_temporal_xpath,
                         )
 
                     # ------------------------------------------------------------
@@ -180,10 +208,14 @@ async def fetch_resources(
                             add_head_to_content=add_head_to_content,
                             exclude_heads_contains=exclude_heads_contains,
                             include_breadcrumb=include_breadcrumb,
+                            temporal_xpath=fragment_temporal_xpath,
                         )
 
                     else:
                         raise ValueError(f"Unknown fragment_mode: {fragment_mode}")
+
+                    if fragment_temporal_index:
+                        attach_fragment_temporal_index(fragments)
 
                 item = {
                     "id": rid,

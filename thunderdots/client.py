@@ -659,3 +659,65 @@ class ThunderDots:
             )
             for index, notice in enumerate(notices)
         ]
+
+    def to_qdrant_fragment_payloads(
+        self, *, include_resource_temporal: bool = False
+    ) -> list[dict[str, Any]]:
+        """Return one Qdrant payload per non-empty fragment, across all notices.
+
+        Each payload carries the fragment text, its own ``metadata`` and ``temporal`` index,
+        and the ``record_id`` of its resource. Resource-level dates are only added when
+        *include_resource_temporal* is True, under the distinct ``resource_temporal``
+        namespace.
+
+        :param include_resource_temporal: Add the resource temporal index to each payload.
+        :type include_resource_temporal: bool
+        :return: A list of Qdrant payload dictionaries, in notice then fragment order.
+        :rtype: list[dict[str, Any]]
+        """
+        return [
+            point["payload"]
+            for notice in self.notices()
+            for point in notice.to_qdrant_fragment_points(
+                include_resource_temporal=include_resource_temporal
+            )
+        ]
+
+    def to_qdrant_fragment_points(
+        self,
+        *,
+        vectors: list[list[float] | dict[str, Any]] | None = None,
+        include_resource_temporal: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Return one Qdrant point per non-empty fragment, across all notices.
+
+        Points follow the order of :meth:`to_qdrant_fragment_payloads`, so *vectors* must be
+        aligned on that order. Point identifiers are stable hashes of
+        ``"<resource id>::<fragment id>"``.
+
+        :param vectors: Optional vectors, one per non-empty fragment.
+        :type vectors: list[list[float] | dict[str, Any]] | None
+        :param include_resource_temporal: Add the resource temporal index to each payload.
+        :type include_resource_temporal: bool
+        :return: A list of Qdrant point dictionaries.
+        :rtype: list[dict[str, Any]]
+        :raises ValueError: If the number of vectors does not match the number of fragments.
+        """
+        points = [
+            point
+            for notice in self.notices()
+            for point in notice.to_qdrant_fragment_points(
+                include_resource_temporal=include_resource_temporal
+            )
+        ]
+
+        if vectors is not None:
+            if len(vectors) != len(points):
+                raise ValueError(
+                    f"vectors length mismatch: got {len(vectors)} vectors for "
+                    f"{len(points)} fragments"
+                )
+            for point, vector in zip(points, vectors):
+                point["vector"] = vector
+
+        return points

@@ -20,8 +20,12 @@ Depending on the mode, it can also include:
     "level": 1,
     "fragment_xpath": ".//tei:text/tei:body/tei:div",
     "fragment_index": 0,
+    "metadata": {"dublincore": {...}, "extensions": {...}, "tei": {"date": "1157"}},
+    "temporal": {"tei.date_start": 1157, "tei.date_end": 1157, ...},
 }
 ```
+
+`metadata` is always present. `temporal` is only computed when `fragment_params` is given; see [Fragment parameters](configuration.md#fragment-parameters).
 
 ## `document`
 

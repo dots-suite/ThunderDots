@@ -44,27 +44,38 @@ class FixtureFetcher:
 
     def __init__(self) -> None:
         self.collection = load_json("collection_encpos_2025.json")
+        self.cartulaire_collection = load_json("collection_cartulaire_sample.json")
+
+        self.collections = {
+            "ENCPOS_2025": self.collection,
+            "CART_SAMPLE_COLL": self.cartulaire_collection,
+        }
 
         self.resources = {
             "ENCPOS_2025_01": load_json("resource_encpos_2025_01.json"),
             "ENCPOS_2025_02": self.collection["member"][1],
+            "CART_SAMPLE": self.cartulaire_collection["member"][0],
         }
 
         self.parents = {
             "ENCPOS_2025": ["ENCPOS"],
             "ENCPOS_2025_01": ["ENCPOS_2025"],
             "ENCPOS_2025_02": ["ENCPOS_2025"],
+            "CART_SAMPLE_COLL": ["cartulaires"],
+            "CART_SAMPLE": ["CART_SAMPLE_COLL"],
         }
 
         self.navigation = {
             "ENCPOS_2025_01": load_json("navigation_encpos_2025_01.json"),
             "ENCPOS_2025_02": load_json("navigation_encpos_2025_01.json"),
+            "CART_SAMPLE": load_json("navigation_cartulaire_sample.json"),
         }
 
         self.documents = {
             "ENCPOS_2025_01": load_xml("encpos_1893_05.xml"),
             "ENCPOS_2025_02": load_xml("encpos_1893_05.xml"),
             "SMCP-PR_0004": load_xml("smcp_pr_0004.xml"),
+            "CART_SAMPLE": load_xml("cartulaire_sample.xml"),
         }
 
         self.calls: list[tuple[str, dict[str, Any] | None]] = []
@@ -96,8 +107,8 @@ class FixtureFetcher:
                     ],
                 }
 
-            if resource_id == "ENCPOS_2025":
-                return self.collection
+            if resource_id in self.collections:
+                return self.collections[resource_id]
 
             return self.resources.get(resource_id)
 

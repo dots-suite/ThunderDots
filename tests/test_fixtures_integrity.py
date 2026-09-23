@@ -28,6 +28,18 @@ def test_resource_fixture_contains_dublincore_and_extensions() -> None:
 
 def test_xml_fixtures_are_parseable_tei_documents() -> None:
     """Verify that all XML fixtures are well-formed TEI documents usable by the extractors."""
-    for filename in ["encpos_1893_05.xml", "smcp_pr_0004.xml"]:
+    for filename in ["encpos_1893_05.xml", "smcp_pr_0004.xml", "cartulaire_sample.xml"]:
         root = etree.fromstring(load_xml(filename).encode("utf-8"))
         assert root.tag.endswith("TEI")
+
+
+def test_cartulaire_fixtures_are_aligned() -> None:
+    """Verify that the cartulaire navigation identifiers all exist as xml:id in the TEI fixture."""
+    nav = load_json("navigation_cartulaire_sample.json")
+    xml = load_xml("cartulaire_sample.xml")
+    collection = load_json("collection_cartulaire_sample.json")
+
+    identifiers = [member["identifier"] for member in nav["member"]]
+    assert len(identifiers) == 6
+    assert all(f'xml:id="{identifier}"' in xml for identifier in identifiers)
+    assert collection["member"][0]["@id"] == nav["@id"] == "CART_SAMPLE"

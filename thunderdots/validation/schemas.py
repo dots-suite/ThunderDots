@@ -63,6 +63,8 @@ FRAGMENT_SCHEMA = {
         "head": {"type": ["string", "null"]},
         "breadcrumb": {"type": ["string", "null"]},
         "level": {"type": ["integer", "string", "null"]},
+        "metadata": {"type": ["object", "null"]},
+        "temporal": {"type": ["object", "null"]},
     },
     "additionalProperties": True,
 }

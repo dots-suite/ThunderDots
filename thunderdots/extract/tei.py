@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import unicodedata
 import hashlib
+from typing import Any
 from lxml import etree
 import warnings
+
+from ..normalize.metadata import build_metadata
 
 
 NS = {"tei": "http://www.tei-c.org/ns/1.0"}
@@ -128,6 +131,169 @@ def _text_content_without_local_heads(
     return _normalize_ws("".join(parts))
 
 
+def _temporal_value_of_match(match: Any) -> str | None:
+    """Turn one XPath match into a temporal string.
+
+    For an element such as ``<date>``, TEI dating attributes are preferred over the text
+    content, in this order: ``when``, then ``notBefore``/``notAfter`` (joined as a range),
+    then ``from``/``to`` (joined as a range). Attribute or text matches are used as is.
+
+    :param match: An lxml element, attribute value or text node returned by ``xpath()``.
+    :type match: Any
+    :return: The normalized temporal value, or None when empty.
+    :rtype: str | None
+    """
+    if isinstance(match, etree._Element):
+        when = match.get("when")
+        if when:
+            return _normalize_ws(when)
+
+        for start_attr, end_attr in (("notBefore", "notAfter"), ("from", "to")):
+            start = match.get(start_attr)
+            end = match.get(end_attr)
+            if start or end:
+                return f"{_normalize_ws(start or '')}/{_normalize_ws(end or '')}"
+
+        return _normalize_ws("".join(match.itertext())) or None
+
+    return _normalize_ws(str(match)) or None
+
+
+def _match_element(match: Any) -> etree._Element | None:
+    """Return the element that carries an XPath match (the match itself, or the parent of an
+    attribute / text result).
+
+    :param match: An lxml element, attribute value or text node returned by ``xpath()``.
+    :type match: Any
+    :return: The carrying element, or None for values detached from the tree.
+    :rtype: lxml.etree._Element | None
+    """
+    if isinstance(match, etree._Element):
+        return match
+    getparent = getattr(match, "getparent", None)
+    return getparent() if callable(getparent) else None
+
+
+def _is_inside_other_fragment(
+    element: etree._Element | None,
+    node: etree._Element,
+    fragment_nodes: set[etree._Element] | None,
+) -> bool:
+    """Return True when *element* sits inside a descendant fragment node of *node*.
+
+    :param element: Element carrying an XPath match.
+    :type element: lxml.etree._Element | None
+    :param node: Current fragment node (XPath context).
+    :type node: lxml.etree._Element
+    :param fragment_nodes: Nodes of all fragments extracted from the same document.
+    :type fragment_nodes: set[lxml.etree._Element] | None
+    :return: True when the match belongs to another fragment.
+    :rtype: bool
+    """
+    if not fragment_nodes:
+        return False
+
+    cur = element
+    while cur is not None and cur is not node:
+        if cur in fragment_nodes:
+            return True
+        cur = cur.getparent()
+    return False
+
+
+def _temporal_values_from_xpath(
+    node: etree._Element,
+    temporal_xpath: str | None,
+    *,
+    fragment_nodes: set[etree._Element] | None = None,
+) -> list[str]:
+    """Evaluate ``temporal_xpath`` relative to a fragment node and return its temporal values.
+
+    Matches located inside a descendant fragment node are ignored, mirroring the way
+    fragment content excludes descendant fragments: a container section does not take
+    over the dates of the acts it contains.
+
+    :param node: Fragment node used as the XPath context.
+    :type node: lxml.etree._Element
+    :param temporal_xpath: XPath expression, or None to skip.
+    :type temporal_xpath: str | None
+    :param fragment_nodes: Nodes of all fragments extracted from the same document.
+    :type fragment_nodes: set[lxml.etree._Element] | None
+    :return: Non-empty temporal values, in document order and without duplicates.
+    :rtype: list[str]
+    """
+    if not temporal_xpath:
+        return []
+
+    matches = node.xpath(temporal_xpath, namespaces=NS)
+    if not isinstance(matches, list):
+        matches = [matches]
+
+    values: list[str] = []
+    for match in matches:
+        if _is_inside_other_fragment(_match_element(match), node, fragment_nodes):
+            continue
+        value = _temporal_value_of_match(match)
+        if value and value not in values:
+            values.append(value)
+    return values
+
+
+def _fragment_metadata(
+    member: dict | None,
+    *,
+    metadata_dublincore: list[str] | None,
+    metadata_extensions: list[str] | None,
+    node: etree._Element | None = None,
+    temporal_xpath: str | None = None,
+    fragment_nodes: set[etree._Element] | None = None,
+) -> dict[str, Any]:
+    """Build the ``metadata`` block of one fragment.
+
+    Dublin Core and extension metadata come from the DTS navigation member (both
+    ``dublincore`` and ``dublinCore`` spellings are accepted). TEI dates matched by
+    ``temporal_xpath`` are stored under ``tei.date`` (first value) and, when several
+    values match, ``tei.dates``.
+
+    :param member: Navigation member describing the fragment, or None.
+    :type member: dict | None
+    :param metadata_dublincore: Dublin Core fields to keep (None = all, [] = none).
+    :type metadata_dublincore: list[str] | None
+    :param metadata_extensions: Extension fields to keep (None = all, [] = none).
+    :type metadata_extensions: list[str] | None
+    :param node: Fragment node used to evaluate ``temporal_xpath``.
+    :type node: lxml.etree._Element | None
+    :param temporal_xpath: XPath relative to *node* selecting TEI temporal values.
+    :type temporal_xpath: str | None
+    :param fragment_nodes: Nodes of all fragments of the document, used to ignore dates that
+        belong to descendant fragments.
+    :type fragment_nodes: set[lxml.etree._Element] | None
+    :return: Metadata dictionary with only the non-empty ``dublincore``, ``extensions``
+        and ``tei`` blocks.
+    :rtype: dict[str, Any]
+    """
+    metadata: dict[str, Any] = {}
+
+    if isinstance(member, dict):
+        metadata.update(
+            build_metadata(
+                member,
+                metadata_dublincore=metadata_dublincore,
+                metadata_extensions=metadata_extensions,
+            )
+        )
+
+    if node is not None and temporal_xpath:
+        values = _temporal_values_from_xpath(node, temporal_xpath, fragment_nodes=fragment_nodes)
+        if values:
+            tei: dict[str, Any] = {"date": values[0]}
+            if len(values) > 1:
+                tei["dates"] = values
+            metadata["tei"] = tei
+
+    return metadata
+
+
 def _nearest_ancestor_head(node: etree._Element) -> str | None:
     """Find the nearest ancestor head text for a given node, searching up the tree.
 
@@ -156,6 +322,7 @@ def extract_fragments_by_xpath(
     exclude_heads_contains: list[str] | None = None,
     include_breadcrumb: bool = True,
     generated_id_prefix: str = "__DOCUMENT__",
+    temporal_xpath: str | None = None,
 ) -> list[dict]:
     """Extract text fragments from TEI XML based on a specified XPath for fragment nodes, with options for handling headings and generating stable IDs.
 
@@ -183,14 +350,19 @@ def extract_fragments_by_xpath(
         :param generated_id_prefix: Prefix to use for generated fragment IDs when xml:id is not
         present (default: "__DOCUMENT__")
         :type generated_id_prefix: str
+        :param temporal_xpath: Optional XPath evaluated relative to each fragment node; matching
+        TEI dates are stored under ``metadata.tei.date`` (default: None)
+        :type temporal_xpath: str | None
         :return: List of dictionaries representing extracted fragments, each containing keys like "id",
-                    "head", "content", "fragment_xpath", "fragment_index", and optionally "breadcrumb"
+                    "head", "content", "metadata", "fragment_xpath", "fragment_index", and optionally
+                    "breadcrumb"
         :rtype: list[dict]
     """
     root = _parse_tei_xml(tei_xml)
     nodes = root.xpath(fragment_xpath, namespaces=NS)
 
     normalized_excludes = _normalize_patterns(exclude_heads_contains)
+    fragment_nodes = {n for n in nodes if isinstance(n, etree._Element)}
     fragments: list[dict] = []
 
     for index, node in enumerate(nodes):
@@ -229,6 +401,14 @@ def extract_fragments_by_xpath(
             "id": dots_id,
             "head": head,
             "content": content,
+            "metadata": _fragment_metadata(
+                None,
+                metadata_dublincore=None,
+                metadata_extensions=None,
+                node=node,
+                temporal_xpath=temporal_xpath,
+                fragment_nodes=fragment_nodes,
+            ),
             "fragment_xpath": fragment_xpath,
             "fragment_index": index,
         }
@@ -546,6 +726,7 @@ def extract_document_text_fast(
     add_head_to_content: bool = True,
     exclude_heads_contains: list[str] | None = None,
     include_breadcrumb: bool = True,
+    temporal_xpath: str | None = None,
 ) -> list[dict]:
     """Extract the full document text from TEI XML without using navigation JSON, with options for handling headings and generating a single fragment.
 
@@ -560,8 +741,11 @@ def extract_document_text_fast(
         :param include_breadcrumb: Whether to include a breadcrumb field in the output with the head
         (default: True)
         :type include_breadcrumb: bool
+        :param temporal_xpath: Optional XPath evaluated relative to the ``<tei:text>`` element (or the
+        root when absent); matching TEI dates are stored under ``metadata.tei.date`` (default: None)
+        :type temporal_xpath: str | None
         :return: A list containing a single dictionary representing the entire document text, with keys like
-                    "id", "content", and optionally "breadcrumb"
+                    "id", "content", "metadata", and optionally "breadcrumb"
         :rtype: list[dict]
     """
     root = _parse_tei_xml(tei_xml)
@@ -580,6 +764,13 @@ def extract_document_text_fast(
     item = {
         "id": "__DOCUMENT__",
         "content": _normalize_ws(text),
+        "metadata": _fragment_metadata(
+            None,
+            metadata_dublincore=None,
+            metadata_extensions=None,
+            node=text_el if text_el is not None else root,
+            temporal_xpath=temporal_xpath,
+        ),
     }
 
     if include_breadcrumb:
@@ -595,6 +786,8 @@ def extract_fragments(
     exclude_heads_contains: list[str] | None = None,
     include_breadcrumb: bool = True,
     fragment_metadata_dublincore_params: list[str] | None = None,
+    fragment_metadata_extensions_params: list[str] | None = None,
+    temporal_xpath: str | None = None,
 ):
     """Extract text fragments from TEI XML using navigation JSON for structure, with options for handling headings and generating breadcrumbs.
 
@@ -611,10 +804,17 @@ def extract_fragments(
     :param include_breadcrumb: Whether to include a breadcrumb field in the output with the head
     (default: True)
     :type include_breadcrumb: bool
-    :param fragment_metadata_dublincore_params: Optional list of Dublin Core metadata keys to include in the fragment metadata (default: None)
-    :type fragment_metadata_dublincore_params: dict | None
+    :param fragment_metadata_dublincore_params: Dublin Core keys of the navigation member to keep
+    in ``metadata.dublincore`` (None keeps all, [] keeps none; default: None)
+    :type fragment_metadata_dublincore_params: list[str] | None
+    :param fragment_metadata_extensions_params: Extension keys of the navigation member to keep
+    in ``metadata.extensions`` (None keeps all, [] keeps none; default: None)
+    :type fragment_metadata_extensions_params: list[str] | None
+    :param temporal_xpath: Optional XPath evaluated relative to each fragment node; matching TEI
+    dates are stored under ``metadata.tei.date`` (default: None)
+    :type temporal_xpath: str | None
     :return: A list of dictionaries representing extracted fragments, each containing keys like "id
-                "head", "content", "level", and optionally "breadcrumb"
+                "head", "content", "level", "metadata", and optionally "breadcrumb"
     :rtype: list[dict]
     """
     if (not nav_json) or (_max_cite_depth(nav_json) == 0):
@@ -623,6 +823,7 @@ def extract_fragments(
             add_head_to_content=add_head_to_content,
             exclude_heads_contains=exclude_heads_contains,
             include_breadcrumb=include_breadcrumb,
+            temporal_xpath=temporal_xpath,
         )
 
     root = _parse_tei_xml(tei_xml)
@@ -634,10 +835,7 @@ def extract_fragments(
     fragment_ids: set[str] = set()
 
     normalized_excludes = _normalize_patterns(exclude_heads_contains)
-    metadata_filter_frags = fragment_metadata_dublincore_params
     for m in members:
-        # print("Processing member:", m)
-        # sys.exit()
         mid = _nav_identifier(m)
         if not mid:
             continue
@@ -647,11 +845,9 @@ def extract_fragments(
             "parent": _parent_id(m),
             "title": _nav_title(m),
             "level": m.get("level"),
-            # "citeType": m.get("citeType"),
-            # "frag_metadata_dublincore": {k:v for k, v in m.get("dublinCore").items() if k in metadata_filter_frags},
         }
-        # if mid == "art_01":
-        #    print("nav_idx entry:", nav_idx[mid])
+
+    fragment_nodes = {xml_index[fid] for fid in fragment_ids if fid in xml_index}
 
     fragments = []
     for m in members:
@@ -678,18 +874,17 @@ def extract_fragments(
         else:
             content = _normalize_ws(content)
 
-        dublin_core = m.get("dublinCore") or {}
+        metadata = _fragment_metadata(
+            m,
+            metadata_dublincore=fragment_metadata_dublincore_params,
+            metadata_extensions=fragment_metadata_extensions_params,
+            node=node,
+            temporal_xpath=temporal_xpath,
+            fragment_nodes=fragment_nodes,
+        )
 
-        if metadata_filter_frags is None:
-            fragment_metadata_dublincore = dublin_core
-        elif metadata_filter_frags:
-            fragment_metadata_dublincore = {
-                k: v for k, v in dublin_core.items() if k in metadata_filter_frags
-            }
-        else:
-            fragment_metadata_dublincore = None
-
-        fragment_title = dublin_core.get("title")
+        dublin_core = m.get("dublincore") or m.get("dublinCore") or {}
+        fragment_title = dublin_core.get("title") if isinstance(dublin_core, dict) else None
 
         if fragment_title is not None and head != fragment_title:
             warnings.warn(
@@ -706,7 +901,9 @@ def extract_fragments(
             "content": content,
             "citeType": m.get("citeType"),
             "parent": m.get("parent"),
-            "metadata_dublincore": fragment_metadata_dublincore,
+            "metadata": metadata,
+            # Legacy alias kept for backward compatibility; prefer ``metadata["dublincore"]``.
+            "metadata_dublincore": metadata.get("dublincore"),
         }
         if include_breadcrumb:
             item["breadcrumb"] = _breadcrumb(nav_idx, xml_id)
