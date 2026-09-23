@@ -27,9 +27,9 @@ if __name__ == "__main__":
             # "fetch_linked_parents": True,
         },
         fragment_params={
-        "metadata_dublincore": ["title", "date"],
-        "metadata_extensions": ["dateCreated"],
-    },
+            "metadata_dublincore": ["title", "date"],
+            "metadata_extensions": ["dateCreated"],
+        },
         use_cache=False,
         verbose=True,
         **HTTP_PARAMS,
