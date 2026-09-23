@@ -5,14 +5,15 @@ Stats collection and reporting for ThunderDots.
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Stats:
     def __init__(self):
         """Initialize stats with default values.
 
-        - `timestamp`: ISO format timestamp of when the stats were collected
+        - `timestamp`: ISO 8601 UTC timestamp of when the fetch started (e.g.
+          ``2026-09-24T10:00:00.123456+00:00``)
         - `elapsed`: Total elapsed time in seconds for the operation
         - `http_errors`: Total number of HTTP errors encountered
         - `requests_total`: Total number of HTTP requests made
@@ -33,7 +34,7 @@ class Stats:
         """Start the timer and set the timestamp for when the stats collection begins."""
 
         self.t0 = time.time()
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
         self.http_errors = 0
         self.requests_total = 0
         self.requests_skipped = 0
