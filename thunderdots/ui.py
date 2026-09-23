@@ -3,40 +3,79 @@
 """ui.py
 
 UI and progress reporting for ThunderDots.
+
+``rich`` is imported lazily, on first use, so that ``import thunderdots`` stays cheap and
+quiet runs (``verbose=False``) never pay for it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
-
-from rich.console import Console
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
-from rich.table import Column
-from rich.theme import Theme
-
-theme = Theme(
-    {
-        "td": "bold cyan",
-        "ok": "bold green",
-        "logo": "bold cyan",
-        "step": "bold magenta",
-        "warn": "yellow",
-        "err": "bold red",
-        "dim": "dim",
-    }
-)
-
-console = Console(theme=theme)
+from functools import lru_cache
+from typing import Any, Optional
 
 _LOGO = "[logo]⚡ ThunderDots[/logo]"
+
+
+@lru_cache(maxsize=1)
+def get_console() -> Any:
+    """Return the shared rich console, created on first use.
+
+    :return: A ``rich.console.Console`` configured with the ThunderDots theme.
+    :rtype: rich.console.Console
+    """
+    from rich.console import Console
+    from rich.theme import Theme
+
+    theme = Theme(
+        {
+            "td": "bold cyan",
+            "ok": "bold green",
+            "logo": "bold cyan",
+            "step": "bold magenta",
+            "warn": "yellow",
+            "err": "bold red",
+            "dim": "dim",
+        }
+    )
+    return Console(theme=theme)
+
+
+def _build_progress(console: Any) -> Any:
+    """Build the rich progress display used for the walk and fetch phases.
+
+    :param console: Console to render on.
+    :type console: rich.console.Console
+    :return: A ``rich.progress.Progress`` instance.
+    :rtype: rich.progress.Progress
+    """
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+    from rich.table import Column
+
+    return Progress(
+        TextColumn("  "),
+        SpinnerColumn(spinner_name="dots", style="cyan"),
+        TextColumn("{task.description}", table_column=Column(min_width=36)),
+        BarColumn(
+            bar_width=22,
+            style="dim",
+            complete_style="cyan",
+            finished_style="green",
+        ),
+        MofNCompleteColumn(),
+        TextColumn("[dim] · [/dim]"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+        disable=not console.is_terminal,
+    )
 
 
 @dataclass
@@ -50,37 +89,23 @@ class UI:
     """
 
     enabled: bool = True
-    progress: Optional[Progress] = None
+    progress: Optional[Any] = None
     task_walk: Optional[int] = None
     task_res: Optional[int] = None
+    walk_completed: int = 0
 
     def __enter__(self):
         """Initialize the Progress instance for managing progress bars if UI is enabled, and return self for use in a with statement."""
         if not self.enabled:
             return self
 
+        console = get_console()
         console.print()
         console.print(f"  {_LOGO}", highlight=False)
         console.print("  [dim]" + "─" * 28 + "[/dim]")
         console.print()
 
-        self.progress = Progress(
-            TextColumn("  "),
-            SpinnerColumn(spinner_name="dots", style="cyan"),
-            TextColumn("{task.description}", table_column=Column(min_width=36)),
-            BarColumn(
-                bar_width=22,
-                style="dim",
-                complete_style="cyan",
-                finished_style="green",
-            ),
-            MofNCompleteColumn(),
-            TextColumn("[dim] · [/dim]"),
-            TimeElapsedColumn(),
-            console=console,
-            transient=False,
-            disable=not console.is_terminal,
-        )
+        self.progress = _build_progress(console)
         self.progress.__enter__()
         return self
 
@@ -112,7 +137,7 @@ class UI:
     def log(self, msg: str, style: str = "td"):
         """Log a message with the specified style, only if UI is enabled."""
         if self.enabled:
-            console.print(msg, style=style)
+            get_console().print(msg, style=style)
 
     def start_walk(self):
         """Start an indeterminate progress bar for the collection-walk phase."""
@@ -122,31 +147,44 @@ class UI:
                 total=None,
             )
 
-    def update_collections(self, walked: int, collections: int, resources: int, http_errors: int):
+    def update_collections(
+        self,
+        walked: int,
+        collections: int,
+        resources: int,
+        http_errors: int,
+        discovered: int | None = None,
+    ):
         """Update the walk progress bar with current discovery counts.
+
+        The walk cannot know its total in advance, so the bar shows
+        ``walked / discovered``: the number of objects processed over the number of
+        objects queued so far. The total grows while collections are discovered and
+        the two numbers meet when the walk is over.
 
         :param walked: Number of DTS objects walked so far.
         :param collections: Collections found so far.
         :param resources: Resources discovered so far.
         :param http_errors: HTTP errors encountered so far.
+        :param discovered: Objects discovered (queued) so far, used as the current total.
         """
         if not self.progress or self.task_walk is None:
             return
 
         err_part = f"  [err]{http_errors} err[/err]" if http_errors else ""
-        desc = (
-            f"  [step]Walk[/step]  "
-            f"[dim]{walked} walked · "
-            f"{collections} col · "
-            f"{resources} res[/dim]"
-            f"{err_part}"
-        )
-        self.progress.update(self.task_walk, description=desc)
+        desc = f"  [step]Walk[/step]  [dim]{collections} col · {resources} res[/dim]{err_part}"
+
+        self.walk_completed = walked
+        fields = {"description": desc, "completed": walked}
+        if discovered is not None:
+            fields["total"] = max(discovered, walked)
+        self.progress.update(self.task_walk, **fields)
 
     def finish_walk(self):
         """Mark the walk phase as complete (switches bar to determinate green)."""
         if self.progress and self.task_walk is not None:
-            self.progress.update(self.task_walk, total=1, completed=1)
+            total = max(self.walk_completed, 1)
+            self.progress.update(self.task_walk, total=total, completed=total)
 
     def start_resources(self, total: int):
         """Start a determinate progress bar for the resource-fetch phase."""
@@ -177,14 +215,18 @@ class UI:
         elapsed = stats.get("elapsed_seconds", 0)
         errors = stats.get("http_errors", 0)
         requests = stats.get("requests_total", 0)
+        skipped = stats.get("requests_skipped", 0)
 
         if errors:
             status = f"[err]✘  {errors} error{'s' if errors > 1 else ''}[/err]"
         else:
             status = "[ok]✔  Done[/ok]"
 
+        skipped_part = f" · {skipped} skipped" if skipped else ""
+
+        console = get_console()
         console.print()
         console.print(
-            f"  {status}  [dim]{elapsed:.2f}s · {requests} req[/dim]",
+            f"  {status}  [dim]{elapsed:.2f}s · {requests} req{skipped_part}[/dim]",
         )
         console.print()

@@ -49,9 +49,45 @@ class Fetcher:
         """
         raise NotImplementedError
 
+    async def get_bytes(self, path: str, params: dict[str, Any] | None = None) -> bytes:
+        """Fetch the raw body of a response, without decoding it.
+
+        XML documents are handed to lxml as bytes, which lets the parser honour the XML
+        declaration and avoids a decode/encode round trip. The default implementation
+        falls back to :meth:`get_text` so that custom fetchers keep working.
+
+        :param path: The API path to fetch (e.g. "/document").
+        :type path: str
+        :param params: Optional dictionary of query parameters to include in the request.
+        :type params: dict[str, Any] | None
+        :returns: The raw response body.
+        :rtype: bytes
+        """
+        return (await self.get_text(path, params)).encode("utf-8")
+
     async def aclose(self) -> None:
         """Close any resources held by the fetcher (e.g. HTTP client sessions)."""
         return
+
+
+def build_limits(concurrency: int) -> httpx.Limits:
+    """Build the connection pool limits for a given worker concurrency.
+
+    Every connection is kept alive: with HTTP/1.1 servers, *concurrency* workers need as
+    many connections, and letting the pool close half of them between bursts costs one TLS
+    handshake per closed connection.
+
+    :param concurrency: Number of concurrent workers.
+    :type concurrency: int
+    :returns: httpx pool limits.
+    :rtype: httpx.Limits
+    """
+    max_conn = max(1, min(int(concurrency or 20), 200))
+    return httpx.Limits(
+        max_connections=max_conn,
+        max_keepalive_connections=max_conn,
+        keepalive_expiry=30.0,
+    )
 
 
 def _is_retry_status(code: int) -> bool:
@@ -96,17 +132,11 @@ class HttpxFetcher(Fetcher):
 
     def __post_init__(self) -> None:
         """Initialize the httpx.AsyncClient with appropriate limits and timeouts based on the configuration."""
-        max_conn = max(1, min(int(self.concurrency or 20), 200))
-        limits = httpx.Limits(
-            max_connections=max_conn,
-            max_keepalive_connections=max(5, max_conn // 2),
-            keepalive_expiry=30.0,
-        )
         self._client = httpx.AsyncClient(
             timeout=self.timeout,
             http2=_http2_available(),
             follow_redirects=True,
-            limits=limits,
+            limits=build_limits(self.concurrency),
         )
 
         self.retries = int(self.retries or 0)
@@ -250,6 +280,19 @@ class HttpxFetcher(Fetcher):
         """
         r = await self._get_raw(path, params)
         return r.text
+
+    async def get_bytes(self, path: str, params: dict[str, Any] | None = None) -> bytes:
+        """Fetch the raw response body with retries and backoff.
+
+        :param path: The API path to fetch (e.g. "/document").
+        :type path: str
+        :param params: Optional dictionary of query parameters to include in the request.
+        :type params: dict[str, Any] | None
+        :returns: The raw response body.
+        :rtype: bytes
+        """
+        r = await self._get_raw(path, params)
+        return r.content
 
     async def aclose(self) -> None:
         """Close the underlying httpx.AsyncClient session to free resources."""

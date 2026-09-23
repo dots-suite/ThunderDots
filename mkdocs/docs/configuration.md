@@ -53,6 +53,8 @@ collection_params = {
     "metadata_dublincore": ["title"],
     "metadata_extensions": [],
     "fetch_linked_parents": True,
+    "trust_member_metadata": "auto",
+    "trust_total_parents": True,
 }
 ```
 
@@ -63,6 +65,17 @@ collection_params = {
 | `metadata_dublincore` | `list[str] \| None` | `None` | Dublin Core collection fields to keep. `None` keeps all fields; `[]` keeps none. |
 | `metadata_extensions` | `list[str] \| None` | `None` | Extension collection fields to keep. `None` keeps all fields; `[]` keeps none.   |
 | `fetch_linked_parents` | `bool` | `True` | Fetch linked parent collections for the current collection.                      |
+| `trust_member_metadata` | `bool \| "auto"` | `"auto"` | Use the `member` entry of a collection as the full description of a Resource instead of requesting `/collection?id=<member>`. See below. |
+| `trust_total_parents` | `bool` | `True` | Skip `/collection?id=<x>&nav=parents` when the `member` entry says `totalParents == 1` and the traversal already knows that parent. |
+
+### Request reduction
+
+A DTS collection lists its children under `member`, and each entry often repeats the full description of the child: `@type`, `title`, `dublincore`, `extensions`, `citationTrees`, `totalParents`. ThunderDots uses these hints to avoid two requests per resource:
+
+- **`trust_member_metadata="auto"`** trusts a Resource entry only when it looks complete: it carries `citationTrees` or `document`, at least one metadata block, and every key explicitly listed in `resource_params.metadata_dublincore` / `metadata_extensions`. If a requested key is missing from the entry, the resource is fetched as before. `True` always trusts the entry, `False` always fetches.
+- **`trust_total_parents=True`** takes the direct parent from the traversal when `totalParents == 1`. Objects with several parents, or entries without `totalParents`, still go through the Linked Parents API.
+
+On the DoTS endpoints, `member` entries are identical to the full descriptions, and a `document`-mode fetch drops from three requests per resource to one. The number of avoided requests is reported in `td.stats()["requests_skipped"]`. Set both options to `False` when a server abbreviates its `member` entries.
 
 ### Metadata filtering semantics
 

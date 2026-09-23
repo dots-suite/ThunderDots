@@ -312,7 +312,7 @@ def _nearest_ancestor_head(node: etree._Element) -> str | None:
 
 
 def extract_fragments_by_xpath(
-    tei_xml: str,
+    tei_xml: str | bytes,
     *,
     fragment_xpath: str,
     resource_id: str | None = None,
@@ -721,7 +721,7 @@ def _should_exclude_head(head: str | None, normalized_patterns: list[str]) -> bo
 
 
 def extract_document_text_fast(
-    tei_xml: str,
+    tei_xml: str | bytes,
     *,
     add_head_to_content: bool = True,
     exclude_heads_contains: list[str] | None = None,
@@ -751,6 +751,8 @@ def extract_document_text_fast(
     root = _parse_tei_xml(tei_xml)
     text_el = root.find(".//tei:text", namespaces=NS)
 
+    # Both helpers already return whitespace-normalized text: normalizing a second time
+    # would cost another split/join of the whole document for nothing.
     if text_el is None:
         text = ""
     elif add_head_to_content:
@@ -763,7 +765,7 @@ def extract_document_text_fast(
 
     item = {
         "id": "__DOCUMENT__",
-        "content": _normalize_ws(text),
+        "content": text,
         "metadata": _fragment_metadata(
             None,
             metadata_dublincore=None,
@@ -781,7 +783,7 @@ def extract_document_text_fast(
 
 def extract_fragments(
     nav_json,
-    tei_xml: str,
+    tei_xml: str | bytes,
     add_head_to_content: bool = True,
     exclude_heads_contains: list[str] | None = None,
     include_breadcrumb: bool = True,

@@ -7,12 +7,28 @@ Validation functions for collections, resources, and output structure using JSON
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
-
-from jsonschema import Draft202012Validator
 
 from .models import BatchValidationReport, ValidationIssue, ValidationReport
 from .schemas import SCHEMAS
+
+
+@lru_cache(maxsize=None)
+def _validator_for(profile: str) -> Any:
+    """Return the compiled JSON Schema validator of a profile, built once per process.
+
+    ``jsonschema`` is imported here rather than at module level: it is a heavy import
+    (about 400 ms) that only validation runs need.
+
+    :param profile: Profile name, a key of :data:`SCHEMAS`.
+    :type profile: str
+    :return: A ``Draft202012Validator`` for that profile.
+    :rtype: jsonschema.Draft202012Validator
+    """
+    from jsonschema import Draft202012Validator
+
+    return Draft202012Validator(SCHEMAS[profile])
 
 
 def _jsonschema_path(error) -> str:
@@ -38,8 +54,7 @@ def validate_with_jsonschema(data: dict[str, Any], profile: str) -> ValidationRe
     and a list of any issues found during validation.
     :rtype: ValidationReport
     """
-    schema = SCHEMAS[profile]
-    validator = Draft202012Validator(schema)
+    validator = _validator_for(profile)
 
     issues: list[ValidationIssue] = []
     for error in sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path)):

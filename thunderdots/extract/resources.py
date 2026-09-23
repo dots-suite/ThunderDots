@@ -21,6 +21,27 @@ from ..normalize.dates import enrich_temporal_metadata
 from ..normalize.metadata import build_metadata
 
 
+async def _fetch_document(fetcher: Any, resource_id: str) -> bytes | str:
+    """Fetch the TEI document of a resource, as bytes when the fetcher supports it.
+
+    Bytes go straight to lxml, which avoids decoding the body to ``str`` and re-encoding
+    it for the parser. Fetchers without ``get_bytes`` (custom implementations) fall back
+    to ``get_text``.
+
+    :param fetcher: Fetcher instance.
+    :type fetcher: Any
+    :param resource_id: DTS resource identifier.
+    :type resource_id: str
+    :return: The document body.
+    :rtype: bytes | str
+    """
+    params = {"resource": resource_id}
+    get_bytes = getattr(fetcher, "get_bytes", None)
+    if callable(get_bytes):
+        return await get_bytes("/document", params=params)
+    return await fetcher.get_text("/document", params=params)
+
+
 def attach_fragment_temporal_index(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Add a ``temporal`` index to each fragment, derived from its own metadata only.
 
@@ -141,10 +162,7 @@ async def fetch_resources(
                             "/navigation",
                             params={"resource": rid, "down": -1},
                         )
-                        doc_task = fetcher.get_text(
-                            "/document",
-                            params={"resource": rid},
-                        )
+                        doc_task = _fetch_document(fetcher, rid)
 
                         nav, doc = await asyncio.gather(nav_task, doc_task)
 
@@ -172,10 +190,7 @@ async def fetch_resources(
                                 "when fragment_mode='tei_xpath'"
                             )
 
-                        doc = await fetcher.get_text(
-                            "/document",
-                            params={"resource": rid},
-                        )
+                        doc = await _fetch_document(fetcher, rid)
 
                         fragments = await asyncio.to_thread(
                             extract_fragments_by_xpath,
@@ -197,10 +212,7 @@ async def fetch_resources(
                     #    extracted from /document endpoint
                     # ------------------------------------------------------------
                     elif fragment_mode == "document" or fragment_mode == "auto":
-                        doc = await fetcher.get_text(
-                            "/document",
-                            params={"resource": rid},
-                        )
+                        doc = await _fetch_document(fetcher, rid)
 
                         fragments = await asyncio.to_thread(
                             extract_document_text_fast,

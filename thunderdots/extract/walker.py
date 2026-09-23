@@ -4,6 +4,12 @@
 Walk DTS collections and discover their resources using
 Breadth-First Search (BFS) traversal. For each collection or resource,
 resolve its direct parent collections using the Linked Parents API.
+
+The ``member`` entries of a collection often carry enough information to avoid
+requests: a complete Resource description (no need to request
+``/collection?id=<member>``) and a ``totalParents`` count (no need to request
+``/collection?id=<member>&nav=parents`` when the traversal already knows the
+single parent). Both shortcuts are controlled by ``CollectionParams``.
 """
 
 from __future__ import annotations
@@ -12,10 +18,104 @@ import asyncio
 from typing import Any
 
 from .parents import LinkedParentsResolver
+from ..normalize.metadata import get_path
 
 
 CollectionEntry = tuple[dict[str, Any], list[str]]
 ResourceEntry = tuple[dict[str, Any], list[str]]
+
+# Queue items contain:
+#     (object identifier, direct parent discovered during traversal, member entry or None)
+QueueItem = tuple[str, list[str], dict[str, Any] | None]
+
+_DESCRIPTIVE_KEYS = ("dublincore", "dublinCore", "extensions")
+
+
+def _member_block(member: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    """Return the first dictionary found under one of *keys* in a member entry."""
+    for key in keys:
+        value = member.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def member_describes_resource(
+    member: dict[str, Any] | None,
+    *,
+    mode: bool | str,
+    resource_params: Any,
+) -> bool:
+    """Decide whether a Resource ``member`` entry can stand in for its full description.
+
+    :param member: Member entry found in a parent collection.
+    :type member: dict[str, Any] | None
+    :param mode: ``CollectionParams.trust_member_metadata``: ``True``, ``False`` or ``"auto"``.
+        In ``"auto"`` mode the entry must be a Resource carrying ``citationTrees`` or
+        ``document``, at least one metadata block, and every metadata key explicitly
+        requested by *resource_params*.
+    :type mode: bool | str
+    :param resource_params: ``ResourceParams`` with the requested metadata filters.
+    :type resource_params: Any
+    :return: True when the member entry can be used without fetching the resource.
+    :rtype: bool
+    """
+    if mode is False or not isinstance(member, dict):
+        return False
+
+    if member.get("@type") != "Resource":
+        return False
+
+    if mode is True:
+        return True
+
+    if "citationTrees" not in member and "document" not in member:
+        return False
+
+    if not any(isinstance(member.get(key), dict) for key in _DESCRIPTIVE_KEYS):
+        return False
+
+    requested = (
+        (resource_params.metadata_dublincore, ("dublincore", "dublinCore")),
+        (resource_params.metadata_extensions, ("extensions",)),
+    )
+    for wanted, keys in requested:
+        if not wanted:
+            continue
+        block = _member_block(member, keys)
+        if any(get_path(block, path) is None for path in wanted):
+            return False
+
+    return True
+
+
+def member_gives_single_parent(
+    member: dict[str, Any] | None,
+    traversal_parents: list[str],
+) -> bool:
+    """Return True when ``totalParents`` confirms that the traversal parent is the only one.
+
+    :param member: Member entry found in a parent collection.
+    :type member: dict[str, Any] | None
+    :param traversal_parents: Direct parent discovered during traversal.
+    :type traversal_parents: list[str]
+    :return: True when the ``nav=parents`` request can be skipped.
+    :rtype: bool
+    """
+    if not isinstance(member, dict):
+        return False
+
+    total = member.get("totalParents")
+    if isinstance(total, bool) or not isinstance(total, int):
+        return False
+
+    return total == 1 and len(traversal_parents) == 1
+
+
+def _bump_skipped(stats: Any, n: int = 1) -> None:
+    """Increment ``stats.requests_skipped`` when the stats object supports it."""
+    if hasattr(stats, "requests_skipped"):
+        stats.requests_skipped += n
 
 
 async def _fetch_collection(
@@ -83,21 +183,25 @@ async def walk_collections(
 
     concurrency = max(1, int(config.concurrency))
 
+    collection_params = config.collection_params
+    resource_params = config.resource_params
+    trust_member = collection_params.trust_member_metadata
+    trust_parents = bool(collection_params.trust_total_parents)
+
     collections: list[CollectionEntry] = []
     resources: list[ResourceEntry] = []
 
-    # Queue items contain:
-    #     (object identifier, direct parent discovered during traversal)
-    queue: asyncio.Queue[tuple[str, list[str]] | None] = asyncio.Queue()
+    queue: asyncio.Queue[QueueItem | None] = asyncio.Queue()
 
     await queue.put(
         (
-            config.collection_params.collection_id or "",
+            collection_params.collection_id or "",
             [],
+            None,
         )
     )
 
-    excluded = set(config.collection_params.excluded_ids or [])
+    excluded = set(collection_params.excluded_ids or [])
 
     seen: set[str] = set()
     seen_lock = asyncio.Lock()
@@ -114,6 +218,14 @@ async def walk_collections(
 
     sentinel = None
 
+    def wants_parents(object_type: str | None) -> bool:
+        """Return the linked-parents flag for a DTS type (both flags when unknown)."""
+        if object_type == "Resource":
+            return bool(resource_params.fetch_linked_parents)
+        if object_type == "Collection":
+            return bool(collection_params.fetch_linked_parents)
+        return bool(resource_params.fetch_linked_parents or collection_params.fetch_linked_parents)
+
     async def worker() -> None:
         nonlocal walked
 
@@ -124,43 +236,63 @@ async def walk_collections(
                 if queue_item is sentinel:
                     return
 
-                object_id, traversal_parents = queue_item
+                object_id, traversal_parents, member = queue_item
+                hint_type = member.get("@type") if isinstance(member, dict) else None
 
-                need_parents = (
-                    config.resource_params.fetch_linked_parents
-                    or config.collection_params.fetch_linked_parents
+                use_member = member_describes_resource(
+                    member,
+                    mode=trust_member,
+                    resource_params=resource_params,
+                )
+                need_parents = wants_parents(hint_type)
+                parents_from_hint = (
+                    need_parents
+                    and trust_parents
+                    and member_gives_single_parent(member, traversal_parents)
                 )
 
-                if need_parents:
-                    data, linked_parents_prefetch = await asyncio.gather(
-                        _fetch_collection(fetcher, object_id, stats, ui=ui),
-                        parents_resolver.resolve(object_id, fallback=traversal_parents),
-                    )
+                data_coro = (
+                    None if use_member else _fetch_collection(fetcher, object_id, stats, ui=ui)
+                )
+                parents_coro = (
+                    parents_resolver.resolve(object_id, fallback=traversal_parents)
+                    if need_parents and not parents_from_hint
+                    else None
+                )
+
+                linked_parents_prefetch: list[str] = list(traversal_parents)
+
+                if data_coro is not None and parents_coro is not None:
+                    data, linked_parents_prefetch = await asyncio.gather(data_coro, parents_coro)
+                elif data_coro is not None:
+                    data = await data_coro
                 else:
-                    data = await _fetch_collection(fetcher, object_id, stats, ui=ui)
-                    linked_parents_prefetch = list(traversal_parents)
+                    data = dict(member)
+                    _bump_skipped(stats)
+                    if parents_coro is not None:
+                        linked_parents_prefetch = await parents_coro
+
+                if parents_from_hint:
+                    _bump_skipped(stats)
 
                 if data is None:
                     continue
 
                 current_id = str(data.get("@id") or object_id or "").strip()
                 object_type = str(data.get("@type") or "Collection")
+                fetch_parents = wants_parents(object_type)
 
-                if object_type == "Resource":
-                    fetch_parents = bool(config.resource_params.fetch_linked_parents)
-                else:
-                    fetch_parents = bool(config.collection_params.fetch_linked_parents)
-
-                if fetch_parents:
-                    if current_id and current_id != object_id:
-                        linked_parents = await parents_resolver.resolve(
-                            current_id,
-                            fallback=traversal_parents,
-                        )
-                    else:
-                        linked_parents = linked_parents_prefetch
-                else:
+                if not fetch_parents or parents_from_hint:
                     linked_parents = list(traversal_parents)
+                elif parents_coro is None or (current_id and current_id != object_id):
+                    # Parents were not prefetched (type unknown from the hint), or the
+                    # server answered with another identifier: resolve now (cached).
+                    linked_parents = await parents_resolver.resolve(
+                        current_id or object_id,
+                        fallback=traversal_parents,
+                    )
+                else:
+                    linked_parents = linked_parents_prefetch
 
                 async with walked_lock:
                     walked += 1
@@ -174,25 +306,25 @@ async def walk_collections(
                     async with output_lock:
                         collections.append((data, linked_parents))
 
-                    for member in data.get("member") or []:
-                        if not isinstance(member, dict):
+                    for child in data.get("member") or []:
+                        if not isinstance(child, dict):
                             continue
 
-                        member_id = member.get("@id")
+                        child_id = child.get("@id")
 
-                        if not isinstance(member_id, str):
+                        if not isinstance(child_id, str):
                             continue
 
-                        member_id = member_id.strip()
+                        child_id = child_id.strip()
 
-                        if not member_id or member_id in excluded:
+                        if not child_id or child_id in excluded:
                             continue
 
                         async with seen_lock:
-                            if member_id in seen:
+                            if child_id in seen:
                                 continue
 
-                            seen.add(member_id)
+                            seen.add(child_id)
 
                         # The traversal fallback represents a direct parent,
                         # not the complete ancestor chain.
@@ -200,17 +332,21 @@ async def walk_collections(
 
                         await queue.put(
                             (
-                                member_id,
+                                child_id,
                                 direct_fallback,
+                                child,
                             )
                         )
 
                 if ui:
+                    # Root object + every identifier queued so far: the known upper bound
+                    # of the walk, which grows as collections are discovered.
                     ui.update_collections(
                         walked=current_walked,
                         collections=len(collections),
                         resources=len(resources),
                         http_errors=stats.http_errors,
+                        discovered=len(seen) + 1,
                     )
 
             finally:

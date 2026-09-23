@@ -87,6 +87,16 @@ class CollectionParams:
     metadata_dublincore: list[str] | None = None
     metadata_extensions: list[str] | None = None
     fetch_linked_parents: bool = True
+    # Request-reduction hints read from the ``member`` entries of a collection:
+    # - trust_member_metadata: use a Resource member entry as its full description instead
+    #   of requesting ``/collection?id=<member>``. ``"auto"`` only does so when the entry
+    #   looks complete (``citationTrees`` or ``document`` present, metadata present, and
+    #   every explicitly requested metadata key available). ``True`` always trusts it,
+    #   ``False`` always fetches.
+    # - trust_total_parents: skip ``/collection?id=<x>&nav=parents`` when the member entry
+    #   says ``totalParents == 1`` and the traversal already knows that parent.
+    trust_member_metadata: bool | str = "auto"
+    trust_total_parents: bool = True
 
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "CollectionParams":
@@ -113,6 +123,21 @@ class CollectionParams:
         # metadata_extensions = _optional_list(d, "metadata_extensions")
         metadata_dublincore = d.get("metadata_dublincore") if d is not None else None
         metadata_extensions = d.get("metadata_extensions") if d is not None else None
+
+        trust_member_metadata = d.get("trust_member_metadata", "auto")
+        if isinstance(trust_member_metadata, str):
+            trust_member_metadata = trust_member_metadata.strip().lower()
+            if trust_member_metadata != "auto":
+                raise ValueError(
+                    "collection_params.trust_member_metadata must be True, False or 'auto', "
+                    f"got {d.get('trust_member_metadata')!r}"
+                )
+        elif not isinstance(trust_member_metadata, bool):
+            raise ValueError(
+                "collection_params.trust_member_metadata must be True, False or 'auto', "
+                f"got {trust_member_metadata!r}"
+            )
+
         return cls(
             collection_id=d.get("collection_id"),
             excluded_ids=_as_list(d.get("excluded_ids")),
@@ -123,6 +148,8 @@ class CollectionParams:
                 metadata_extensions if metadata_extensions is not None else legacy_ext or None
             ),
             fetch_linked_parents=bool(d.get("fetch_linked_parents", True)),
+            trust_member_metadata=trust_member_metadata,
+            trust_total_parents=bool(d.get("trust_total_parents", True)),
         )
 
 

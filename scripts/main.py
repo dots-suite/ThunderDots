@@ -14,7 +14,7 @@ if __name__ == "__main__":
     td = ThunderDots(
         endpoint_dts="https://dev.chartes.psl.eu/dots/api/dts",
         collection_params={
-            "collection_id": "cartulaires",
+            "collection_id": "ENCPOS",
             "metadata_dublincore": ["title", "creator"],
             "fetch_linked_parents": True,
         },
@@ -30,12 +30,13 @@ if __name__ == "__main__":
         "metadata_dublincore": ["title", "date"],
         "metadata_extensions": ["dateCreated"],
     },
-        use_cache=True,
+        use_cache=False,
         verbose=True,
         **HTTP_PARAMS,
     )
     td.fetch()
     results = td.results()
+
     fragment = td.results()["resource_results"][0]["fragments"]
 
     with open("output_cartulaire_frag.json", "w", encoding="utf-8") as f:

@@ -23,7 +23,6 @@ from .extract.walker import walk_collections
 from .extract.resources import fetch_resources
 from .normalize.output import build_output
 from .normalize.metadata import canonicalize_metadata_keys
-from .validation import validate_notice, validate_many
 from .orm import DotsNotice
 from importlib.metadata import PackageNotFoundError, version
 
@@ -198,6 +197,9 @@ class ThunderDots:
 
         if not isinstance(self._results, dict):
             return
+
+        # Imported here: jsonschema is only needed when validation is enabled.
+        from .validation import validate_many, validate_notice
 
         output_report = validate_notice(self._results, profile="output")
 

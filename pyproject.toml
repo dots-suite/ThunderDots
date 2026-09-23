@@ -16,13 +16,11 @@ authors = [
 keywords = ["dts", "tei", "xml", "digital-humanities", "corpus", "dots"]
 
 dependencies = [
-    "edtf>=5.0.1",
     "h2>=4.3.0",
     "httpx[http2]>=0.28.1",
     "jsonschema>=4.26.0",
     "lxml>=6.0.2",
     "rich>=14.3.2",
-    "tqdm>=4.67.3",
 ]
 
 [project.optional-dependencies]

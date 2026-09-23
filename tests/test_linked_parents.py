@@ -67,11 +67,16 @@ def test_extract_linked_parent_ids_handles_missing_member() -> None:
 def test_client_fetches_collection_and_resource_linked_parents(
     patch_client_fetcher,
 ) -> None:
+    """Verify the explicit Linked Parents API path, with the totalParents shortcut disabled.
+
+    The default (``trust_total_parents=True``) is covered by test_request_reduction.py.
+    """
     td = ThunderDots(
         endpoint_dts="https://example.org/api/dts",
         collection_params={
             "collection_id": "ENCPOS_2025",
             "fetch_linked_parents": True,
+            "trust_total_parents": False,
         },
         resource_params={
             "fragment_mode": "document",
