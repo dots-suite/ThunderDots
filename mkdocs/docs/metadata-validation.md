@@ -18,7 +18,16 @@ resource_params = {
 `DotsNotice` exposes temporal helpers derived from fields such as `date`, `issued`, `created` and `coverage`.
 
 !!! warning "EDTF compliance" 
-    The temporal index is a flat dictionary. For each temporal field whose value can be parsed, it adds `<field>_start`, `<field>_end` (years as integers) and `<field>_start_iso`, `<field>_end_iso` (ISO dates). Supported values are years (`1280`), ISO dates (`1280-03`, `1280-03-04`) and EDTF-style ranges (`1280/1329`, `1280?/1329~`). The ISO bounds keep the precision of the value: `1280` covers `1280-01-01` to `1280-12-31`, `1200-09` covers `1200-09-01` to `1200-09-30`, and `1173-05-02` covers that single day. If a value is not EDTF-compliant, e.g. `created:"1966-1998"`, the raw value is kept but no `_start` / `_end` keys are produced.
+    The temporal index is a flat dictionary. For each temporal field whose value can be parsed, it adds `<field>_start`, `<field>_end` (years as integers, astronomical numbering) and `<field>_start_iso`, `<field>_end_iso` (full ISO dates). The parser covers EDTF level 0 and the main level 1 features:
+
+    - years and dates: `1280`, `-0500`, `1280-03`, `1280-03-04`, with the sign and four-digit padding of ISO 8601 (`-0500` is 501 BC, `0000` is 1 BC);
+    - intervals: `1280/1329`, `-0500/0499`, `1157-03/1158-01`, open or unknown ends `1250/..` and `../1250`;
+    - qualifiers `?`, `~` and `%`, in the level 1 position (`1280?/1329~`) or the level 2 positions (`~1455`, `2004-06~-11`), which are ignored;
+    - unspecified digits: `12XX` covers 1200 to 1299, `1157-XX` the whole year;
+    - long years: `Y-12000`;
+    - level 2 sets, reduced to their overall span: `[1667,1668,1670..1672]` covers 1667 to 1672.
+
+    The ISO bounds keep the precision of the value: `1280` covers `1280-01-01` to `1280-12-31`, `1200-09` covers `1200-09-01` to `1200-09-30`, `1173-05-02` covers that single day, and `-0500` covers `-0500-01-01` to `-0500-12-31`. Years written with fewer than four digits (`800`, `-50`) are not valid EDTF but are tolerated and read as the padded year. A valid date without a usable year (`XXXX-04-12`) and any non-EDTF value (`created:"1966-1998"`, `12 septembre 1399`, `XIVe siècle`) are kept raw and produce no `_start` / `_end` keys. The script `scripts/check_dates.py` tells the two cases apart and can scan a live collection for values ThunderDots cannot read.
 
 ```python
 notice = td.notices()[0]
