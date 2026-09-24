@@ -20,7 +20,14 @@ if __name__ == "__main__":
         },
         resource_params={
             "fragment_mode": "navigation",
-            "metadata_dublincore": ["title", "creator", "issued", "dateCreated", "coverage", "license"],
+            "metadata_dublincore": [
+                "title",
+                "creator",
+                "issued",
+                "dateCreated",
+                "coverage",
+                "license",
+            ],
             "metadata_extensions": ["publisher", "temporalCoverage"],
             "add_head_to_content": False,
             "include_breadcrumb": True,
@@ -44,7 +51,7 @@ if __name__ == "__main__":
         print(notice.temporal_index)
         f.write(f"Ressource: {notice.id}\n")
         f.write(f"{notice.temporal_index}\n")
-        f.write(f"=====================\n")
+        f.write("=====================\n")
         fragments = notice.fragments
         f.write(f"Fragments: {len(fragments)}\n")
         for frag in fragments:
